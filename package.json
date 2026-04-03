@@ -1,0 +1,14 @@
+{
+  "name": "automemory",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "build": "tsc",
+    "test": "node --test --experimental-strip-types src/__tests__/*.test.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4",
+    "typescript": "^5"
+  }
+}
