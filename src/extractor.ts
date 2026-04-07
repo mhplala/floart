@@ -1,90 +1,51 @@
-import { readFile, appendFile, mkdir, unlink } from 'node:fs/promises';
+import { appendFile, mkdir, unlink } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
 import { join, dirname } from 'node:path';
+import { promisify } from 'node:util';
 import { CONFIG } from './config.ts';
 import { Queue } from './queue.ts';
 
-interface ImageContent {
-  type: 'image_url';
-  image_url: { url: string };
+const execFileAsync = promisify(execFile);
+
+const VISION_OCR_BIN = join(import.meta.dirname, '..', 'bin', 'vision_ocr');
+
+const SCENE_PROMPT = `以下是用户屏幕的 OCR 文字提取结果。请根据这些文字内容，用一句话描述用户当前的工作场景（在用什么应用、在做什么）。
+
+只输出一句话场景描述，不要重复 OCR 内容。
+
+OCR 文字：
+`;
+
+export async function runVisionOCR(imagePath: string): Promise<string> {
+  const { stdout } = await execFileAsync(VISION_OCR_BIN, [imagePath]);
+  return stdout.trim();
 }
 
-interface TextContent {
-  type: 'text';
-  text: string;
-}
+export async function describeScene(ocrText: string): Promise<string> {
+  const response = await fetch(`${CONFIG.LLM_BASE_URL}/api/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: CONFIG.VISION_MODEL,
+      messages: [{ role: 'user', content: SCENE_PROMPT + ocrText }],
+      stream: false,
+      think: false,
+      options: { num_predict: 200 },
+    }),
+  });
 
-interface Message {
-  role: string;
-  content: (ImageContent | TextContent)[];
-}
-
-const EXTRACT_PROMPT = `请提取屏幕上所有可见的文字内容，并简要描述当前屏幕的工作场景（在用什么应用、在做什么）。
-
-请按以下格式输出：
-
-**屏幕描述：** （描述当前工作场景）
-
-**文字内容：**
-（列出所有可见文字）`;
-
-export async function buildExtractionPrompt(imagePaths: string[]): Promise<Message[]> {
-  const content: (ImageContent | TextContent)[] = [];
-
-  for (const imgPath of imagePaths) {
-    const buf = await readFile(imgPath);
-    const base64 = buf.toString('base64');
-    content.push({
-      type: 'image_url',
-      image_url: { url: `data:image/jpeg;base64,${base64}` },
-    });
+  if (!response.ok) {
+    throw new Error(`LLM API error: ${response.status} ${response.statusText}`);
   }
 
-  content.push({ type: 'text', text: EXTRACT_PROMPT });
-
-  return [{ role: 'user', content }];
+  const data = await response.json() as { message: { content: string } };
+  return data.message.content;
 }
 
 export async function appendToRawLog(logPath: string, time: string, content: string): Promise<void> {
   await mkdir(dirname(logPath), { recursive: true });
   const entry = `## ${time}\n\n${content}\n\n---\n\n`;
   await appendFile(logPath, entry, 'utf-8');
-}
-
-async function callVisionLLM(messages: Message[]): Promise<string> {
-  // Convert OpenAI-format messages to Ollama native format with base64 images
-  const ollamaMessages = messages.map((m) => {
-    const textParts: string[] = [];
-    const images: string[] = [];
-    for (const part of m.content) {
-      if (part.type === 'text') {
-        textParts.push(part.text);
-      } else if (part.type === 'image_url') {
-        // Extract base64 data from data URL
-        const b64 = part.image_url.url.replace(/^data:image\/\w+;base64,/, '');
-        images.push(b64);
-      }
-    }
-    return { role: m.role, content: textParts.join('\n'), images };
-  });
-
-  const response = await fetch(`${CONFIG.LLM_BASE_URL}/api/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: CONFIG.VISION_MODEL,
-      messages: ollamaMessages,
-      stream: false,
-      think: false,
-      options: { num_predict: 2048 },
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Vision LLM API error: ${response.status} ${response.statusText}`);
-  }
-
-  const data = await response.json() as { message: { content: string } };
-  return data.message.content;
 }
 
 function formatTime(date: Date): string {
@@ -107,11 +68,22 @@ async function deleteFiles(paths: string[]): Promise<void> {
 
 export async function processOneGroup(imagePaths: string[]): Promise<void> {
   const now = new Date();
-  const messages = await buildExtractionPrompt(imagePaths);
-  const result = await callVisionLLM(messages);
 
+  // Step 1: Vision OCR for each screen
+  const ocrResults: string[] = [];
+  for (const imgPath of imagePaths) {
+    const text = await runVisionOCR(imgPath);
+    ocrResults.push(text);
+  }
+  const allOCR = ocrResults.join('\n\n--- Screen ---\n\n');
+
+  // Step 2: LLM scene description from OCR text
+  const scene = await describeScene(allOCR);
+
+  // Step 3: Write to raw log
+  const logEntry = `**场景：** ${scene}\n\n**OCR 内容：**\n${allOCR}`;
   const logPath = join(CONFIG.DATA_DIR, 'raw', `${formatDate(now)}.md`);
-  await appendToRawLog(logPath, formatTime(now), result);
+  await appendToRawLog(logPath, formatTime(now), logEntry);
   await deleteFiles(imagePaths);
 }
 
