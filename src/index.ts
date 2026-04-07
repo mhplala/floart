@@ -14,11 +14,11 @@ async function ensureDataDirs(): Promise<void> {
 }
 
 async function checkGemmaApi(): Promise<void> {
-  const res = await fetch(`${CONFIG.GEMMA_BASE_URL}/models`);
+  const res = await fetch(`${CONFIG.GEMMA_BASE_URL}/v1/models`);
   if (!res.ok) {
-    throw new Error(`Gemma API not reachable: ${res.status}`);
+    throw new Error(`LLM API not reachable: ${res.status}`);
   }
-  console.log('[Automemory] Gemma API connected');
+  console.log('[Automemory] LLM API connected');
 }
 
 async function main(): Promise<void> {

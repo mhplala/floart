@@ -35,7 +35,7 @@ export async function buildExtractionPrompt(imagePaths: string[]): Promise<Messa
     const base64 = buf.toString('base64');
     content.push({
       type: 'image_url',
-      image_url: { url: `data:image/png;base64,${base64}` },
+      image_url: { url: `data:image/jpeg;base64,${base64}` },
     });
   }
 

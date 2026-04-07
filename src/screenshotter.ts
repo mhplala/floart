@@ -17,11 +17,22 @@ export async function captureScreens(screenCount: number): Promise<string[]> {
   await mkdir(tmpDir, { recursive: true });
 
   const timestamp = Date.now();
-  const paths: string[] = [];
+  const pngPaths: string[] = [];
+  const jpgPaths: string[] = [];
   for (let i = 0; i < screenCount; i++) {
-    paths.push(join(tmpDir, `${timestamp}-screen${i}.png`));
+    const png = join(tmpDir, `${timestamp}-screen${i}.png`);
+    const jpg = join(tmpDir, `${timestamp}-screen${i}.jpg`);
+    pngPaths.push(png);
+    jpgPaths.push(jpg);
   }
 
-  await execFileAsync('screencapture', ['-x', ...paths]);
-  return paths;
+  await execFileAsync('screencapture', ['-x', ...pngPaths]);
+
+  // Convert to JPEG and resize to reduce payload for the LLM
+  for (let i = 0; i < pngPaths.length; i++) {
+    await execFileAsync('sips', ['-Z', '768', '-s', 'format', 'jpeg', '-s', 'formatOptions', '60', pngPaths[i], '--out', jpgPaths[i]]);
+    await execFileAsync('rm', [pngPaths[i]]);
+  }
+
+  return jpgPaths;
 }

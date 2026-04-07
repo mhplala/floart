@@ -24,7 +24,7 @@ describe('buildExtractionPrompt', () => {
     // Should have 1 image + 1 text
     assert.equal(content.length, 2);
     assert.equal(content[0].type, 'image_url');
-    assert.ok(content[0].image_url.url.startsWith('data:image/png;base64,'));
+    assert.ok(content[0].image_url.url.startsWith('data:image/jpeg;base64,'));
     assert.equal(content[1].type, 'text');
     assert.ok(content[1].text.includes('提取'));
 
