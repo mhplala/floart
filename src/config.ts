@@ -5,7 +5,7 @@ export const CONFIG = {
   SUMMARIZE_INTERVAL: 90_000,
   QUEUE_MAX_SIZE: 30,
   LLM_BASE_URL: 'http://localhost:11434',
-  VISION_MODEL: 'qwen3.5:0.8b',
-  SUMMARY_MODEL: 'qwen3.5:35b-a3b-coding-nvfp4',
+  VISION_MODEL: 'gemma4:e4b',
+  SUMMARY_MODEL: 'gemma4:e4b',
   DATA_DIR: resolve(import.meta.dirname, '..', 'data'),
 };
