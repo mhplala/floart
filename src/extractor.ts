@@ -50,23 +50,41 @@ export async function appendToRawLog(logPath: string, time: string, content: str
   await appendFile(logPath, entry, 'utf-8');
 }
 
-async function callGemma(messages: Message[]): Promise<string> {
-  const response = await fetch(`${CONFIG.GEMMA_BASE_URL}/v1/chat/completions`, {
+async function callVisionLLM(messages: Message[]): Promise<string> {
+  // Convert OpenAI-format messages to Ollama native format with base64 images
+  const ollamaMessages = messages.map((m) => {
+    const textParts: string[] = [];
+    const images: string[] = [];
+    for (const part of m.content) {
+      if (part.type === 'text') {
+        textParts.push(part.text);
+      } else if (part.type === 'image_url') {
+        // Extract base64 data from data URL
+        const b64 = part.image_url.url.replace(/^data:image\/\w+;base64,/, '');
+        images.push(b64);
+      }
+    }
+    return { role: m.role, content: textParts.join('\n'), images };
+  });
+
+  const response = await fetch(`${CONFIG.LLM_BASE_URL}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: CONFIG.GEMMA_MODEL,
-      messages,
-      max_tokens: 2048,
+      model: CONFIG.VISION_MODEL,
+      messages: ollamaMessages,
+      stream: false,
+      think: false,
+      options: { num_predict: 2048 },
     }),
   });
 
   if (!response.ok) {
-    throw new Error(`Gemma API error: ${response.status} ${response.statusText}`);
+    throw new Error(`Vision LLM API error: ${response.status} ${response.statusText}`);
   }
 
-  const data = await response.json() as { choices: { message: { content: string } }[] };
-  return data.choices[0].message.content;
+  const data = await response.json() as { message: { content: string } };
+  return data.message.content;
 }
 
 function formatTime(date: Date): string {
@@ -90,7 +108,7 @@ async function deleteFiles(paths: string[]): Promise<void> {
 export async function processOneGroup(imagePaths: string[]): Promise<void> {
   const now = new Date();
   const messages = await buildExtractionPrompt(imagePaths);
-  const result = await callGemma(messages);
+  const result = await callVisionLLM(messages);
 
   const logPath = join(CONFIG.DATA_DIR, 'raw', `${formatDate(now)}.md`);
   await appendToRawLog(logPath, formatTime(now), result);

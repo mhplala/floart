@@ -14,7 +14,7 @@ async function ensureDataDirs(): Promise<void> {
 }
 
 async function checkGemmaApi(): Promise<void> {
-  const res = await fetch(`${CONFIG.GEMMA_BASE_URL}/v1/models`);
+  const res = await fetch(`${CONFIG.LLM_BASE_URL}/v1/models`);
   if (!res.ok) {
     throw new Error(`LLM API not reachable: ${res.status}`);
   }

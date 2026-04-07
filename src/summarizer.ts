@@ -44,23 +44,26 @@ export function buildSummaryPrompt(rawContent: string): TextMessage[] {
   ];
 }
 
-async function callGemma(messages: TextMessage[]): Promise<string> {
-  const response = await fetch(`${CONFIG.GEMMA_BASE_URL}/v1/chat/completions`, {
+async function callLLM(messages: TextMessage[]): Promise<string> {
+  // Use Ollama native API with think:false to disable reasoning mode
+  const response = await fetch(`${CONFIG.LLM_BASE_URL}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: CONFIG.GEMMA_MODEL,
+      model: CONFIG.SUMMARY_MODEL,
       messages,
-      max_tokens: 4096,
+      stream: false,
+      think: false,
+      options: { num_predict: 4096, num_ctx: 131072 },
     }),
   });
 
   if (!response.ok) {
-    throw new Error(`Gemma API error: ${response.status} ${response.statusText}`);
+    throw new Error(`LLM API error: ${response.status} ${response.statusText}`);
   }
 
-  const data = await response.json() as { choices: { message: { content: string } }[] };
-  return data.choices[0].message.content;
+  const data = await response.json() as { message: { content: string } };
+  return data.message.content;
 }
 
 function formatDate(date: Date): string {
@@ -92,7 +95,7 @@ export async function summarize(): Promise<void> {
   }
 
   const messages = buildSummaryPrompt(rawContent);
-  const summary = await callGemma(messages);
+  const summary = await callLLM(messages);
 
   await mkdir(dirname(memoryPath), { recursive: true });
   await writeFile(memoryPath, summary, 'utf-8');

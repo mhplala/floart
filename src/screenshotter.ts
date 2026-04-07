@@ -30,7 +30,7 @@ export async function captureScreens(screenCount: number): Promise<string[]> {
 
   // Convert to JPEG and resize to reduce payload for the LLM
   for (let i = 0; i < pngPaths.length; i++) {
-    await execFileAsync('sips', ['-Z', '768', '-s', 'format', 'jpeg', '-s', 'formatOptions', '60', pngPaths[i], '--out', jpgPaths[i]]);
+    await execFileAsync('sips', ['-Z', '1440', '-s', 'format', 'jpeg', '-s', 'formatOptions', '85', pngPaths[i], '--out', jpgPaths[i]]);
     await execFileAsync('rm', [pngPaths[i]]);
   }
 
