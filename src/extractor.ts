@@ -69,19 +69,13 @@ async function deleteFiles(paths: string[]): Promise<void> {
 export async function processOneGroup(imagePaths: string[]): Promise<void> {
   const now = new Date();
 
-  // Step 1: Vision OCR for each screen
+  // Vision OCR for each screen
   const ocrResults: string[] = [];
   for (const imgPath of imagePaths) {
     const text = await runVisionOCR(imgPath);
     ocrResults.push(text);
   }
-  const allOCR = ocrResults.join('\n\n--- Screen ---\n\n');
-
-  // Step 2: LLM scene description from OCR text
-  const scene = await describeScene(allOCR);
-
-  // Step 3: Write to raw log
-  const logEntry = `**场景：** ${scene}\n\n**OCR 内容：**\n${allOCR}`;
+  const logEntry = ocrResults.join('\n\n--- Screen ---\n\n');
   const logPath = join(CONFIG.DATA_DIR, 'raw', `${formatDate(now)}.md`);
   await appendToRawLog(logPath, formatTime(now), logEntry);
   await deleteFiles(imagePaths);
