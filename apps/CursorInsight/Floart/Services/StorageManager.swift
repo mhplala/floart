@@ -25,24 +25,17 @@ final class StorageManager: @unchecked Sendable {
     }
 
     static func formatMarkdownEntry(_ response: AIResponse) -> String {
-        let time = {
-            let f = DateFormatter()
-            f.dateFormat = "HH:mm:ss"
-            return f.string(from: response.timestamp)
-        }()
-        return """
-        ## \(time)
-        **总结：** \(response.summary)
-        **观察：** \(response.observation)
-        **思考：** \(response.reflection)
-        **建议：** \(response.suggestion)
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm:ss"
+        let time = f.string(from: response.timestamp)
 
-        > OCR 原文：
-        > \(response.rawText.replacingOccurrences(of: "\n", with: "\n> "))
-
-        ---
-
-        """
+        var entry = "## \(time)\n"
+        if !response.rawText.isEmpty {
+            // Full cleaned main content area text
+            entry += "> \(response.rawText.replacingOccurrences(of: "\n", with: "\n> "))\n\n"
+        }
+        entry += "\(response.advice)\n\n---\n\n"
+        return entry
     }
 
     func appendMarkdown(_ response: AIResponse) throws {
@@ -55,10 +48,11 @@ final class StorageManager: @unchecked Sendable {
         }
 
         let entry = Self.formatMarkdownEntry(response)
+        guard let data = entry.data(using: .utf8) else { return }
         let handle = try FileHandle(forWritingTo: filePath)
+        defer { handle.closeFile() }
         handle.seekToEndOfFile()
-        handle.write(entry.data(using: .utf8)!)
-        handle.closeFile()
+        handle.write(data)
     }
 
     // MARK: - SwiftData
@@ -76,10 +70,10 @@ final class StorageManager: @unchecked Sendable {
             mouseX: mouseX, mouseY: mouseY,
             captureMode: captureMode.rawValue,
             rawOCRText: response.rawText,
-            summary: response.summary,
-            observation: response.observation,
-            reflection: response.reflection,
-            suggestion: response.suggestion,
+            summary: response.advice,
+            observation: "",
+            reflection: "",
+            suggestion: "",
             aiProvider: provider,
             aiModel: model
         )

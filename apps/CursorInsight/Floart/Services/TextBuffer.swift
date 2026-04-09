@@ -4,6 +4,7 @@ import Foundation
 struct BufferEntry: Sendable {
     let text: String
     let timestamp: Date
+    let appName: String
 }
 
 final class TextBuffer: @unchecked Sendable {
@@ -11,7 +12,7 @@ final class TextBuffer: @unchecked Sendable {
     private let lock = NSLock()
     private let similarityThreshold: Double = 0.9
 
-    func append(_ text: String, at timestamp: Date) {
+    func append(_ text: String, at timestamp: Date, appName: String = "") {
         lock.lock()
         defer { lock.unlock() }
 
@@ -20,7 +21,7 @@ final class TextBuffer: @unchecked Sendable {
            TextSimilarity.isSimilar(last.text, text, threshold: similarityThreshold) {
             return
         }
-        entries.append(BufferEntry(text: text, timestamp: timestamp))
+        entries.append(BufferEntry(text: text, timestamp: timestamp, appName: appName))
     }
 
     func flush() -> [BufferEntry] {

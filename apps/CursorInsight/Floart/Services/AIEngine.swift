@@ -8,51 +8,20 @@ protocol AIProvider: Sendable {
 }
 
 enum AIResponseParser {
-    /// Parse AI output into structured AIResponse.
-    /// Expects lines like: **总结：** content
+    /// Parse AI output — just trim and return as flat text.
     static func parse(_ raw: String, ocrText: String) -> AIResponse {
-        let patterns: [(key: String, keyPath: WritableKeyPath<_Builder, String>)] = [
-            ("总结", \_Builder.summary),
-            ("观察", \_Builder.observation),
-            ("思考", \_Builder.reflection),
-            ("建议", \_Builder.suggestion),
-        ]
-
-        var builder = _Builder()
-        var matched = false
-
-        for (key, keyPath) in patterns {
-            let pattern = "\\*\\*\(key)[：:]\\*\\*\\s*(.+)"
-            if let regex = try? NSRegularExpression(pattern: pattern),
-               let match = regex.firstMatch(
-                   in: raw,
-                   range: NSRange(raw.startIndex..., in: raw)
-               ),
-               let range = Range(match.range(at: 1), in: raw) {
-                builder[keyPath: keyPath] = String(raw[range]).trimmingCharacters(in: .whitespaces)
-                matched = true
-            }
-        }
-
-        if !matched {
-            builder.summary = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
+        let cleaned = raw
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            // Strip any markdown formatting the model might add
+            .replacingOccurrences(of: "**", with: "")
+            .replacingOccurrences(of: "##", with: "")
+            .replacingOccurrences(of: "# ", with: "")
 
         return AIResponse(
-            summary: builder.summary,
-            observation: builder.observation,
-            reflection: builder.reflection,
-            suggestion: builder.suggestion,
+            advice: cleaned,
             timestamp: .now,
             rawText: ocrText
         )
-    }
-
-    struct _Builder {
-        var summary = ""
-        var observation = ""
-        var reflection = ""
-        var suggestion = ""
     }
 }
 
@@ -60,7 +29,7 @@ enum AIResponseParser {
 final class AIEngine: @unchecked Sendable {
     var primaryProvider: (any AIProvider)?
     var fallbackProvider: (any AIProvider)?
-    private let timeoutSeconds: TimeInterval = 15
+    private let timeoutSeconds: TimeInterval = 60
 
     func analyze(text: String, context: String?) async -> AIResponse {
         if let primary = primaryProvider {
@@ -70,13 +39,16 @@ final class AIEngine: @unchecked Sendable {
                 }
                 return AIResponseParser.parse(raw, ocrText: text)
             } catch {
+                Log.write("⚠️ Primary AI failed: \(error.localizedDescription)")
                 if let fallback = fallbackProvider {
+                    Log.write("🔄 Trying fallback provider...")
                     do {
                         let raw = try await withTimeout(seconds: timeoutSeconds) {
                             try await fallback.analyze(text: text, context: context)
                         }
                         return AIResponseParser.parse(raw, ocrText: text)
                     } catch {
+                        Log.write("❌ Fallback also failed: \(error.localizedDescription)")
                         return AIResponse.empty
                     }
                 }

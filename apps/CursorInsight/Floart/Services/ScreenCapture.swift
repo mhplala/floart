@@ -12,85 +12,88 @@ enum ScreenCapture {
 
     // MARK: - Fixed-area capture
 
-    /// Capture a region around the current mouse position.
     static func captureAroundMouse(size: CGFloat) async throws -> CGImage? {
         let mouseLocation = NSEvent.mouseLocation
         guard let mainScreen = NSScreen.main else { return nil }
         let screenHeight = mainScreen.frame.height
+        let scale = mainScreen.backingScaleFactor
 
         let halfSize = size / 2
-        var x = mouseLocation.x - halfSize
-        var y = mouseLocation.y - halfSize
+        let cgMouseX = mouseLocation.x
+        let cgMouseY = screenHeight - mouseLocation.y
 
-        // Clamp to screen bounds (NSScreen coordinates: origin bottom-left)
-        let screenFrame = mainScreen.frame
-        x = max(screenFrame.minX, min(x, screenFrame.maxX - size))
-        y = max(screenFrame.minY, min(y, screenFrame.maxY - size))
+        var x = cgMouseX - halfSize
+        var y = cgMouseY - halfSize
+        x = max(0, min(x, mainScreen.frame.width - size))
+        y = max(0, min(y, screenHeight - size))
 
-        // SCScreenshotManager.captureImage(in:) uses display-space points
-        // with origin at top-left of the primary display.
-        // Convert NSScreen (bottom-left origin) to display space (top-left origin).
-        let displayY = screenHeight - (y + size)
-        let captureRect = CGRect(x: x, y: displayY, width: size, height: size)
+        let captureRect = CGRect(x: x, y: y, width: size, height: size)
 
-        return try await withCheckedThrowingContinuation { continuation in
-            SCScreenshotManager.captureImage(in: captureRect) { image, error in
-                if let error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume(returning: image)
-                }
-            }
-        }
+        let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
+        let myPID = ProcessInfo.processInfo.processIdentifier
+        let myWindows = content.windows.filter { $0.owningApplication?.processID == myPID }
+
+        guard let display = content.displays.first else { return nil }
+
+        let filter = SCContentFilter(display: display, excludingWindows: myWindows)
+        let config = SCStreamConfiguration()
+        config.sourceRect = captureRect
+        config.width = Int(size * scale)
+        config.height = Int(size * scale)
+        config.showsCursor = false
+
+        return try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
     }
 
-    // MARK: - Smart-window capture
+    // MARK: - Smart window: capture the frontmost app's main window
 
-    /// Capture the window under the current mouse position.
-    /// Falls back to fixed-area capture if no window is found.
-    static func captureWindowUnderMouse(fallbackSize: CGFloat) async throws -> CGImage? {
-        let mouseLocation = NSEvent.mouseLocation
+    static func captureFrontmostWindow() async throws -> CGImage? {
+        let myPID = ProcessInfo.processInfo.processIdentifier
 
-        let content = try await SCShareableContent.excludingDesktopWindows(
-            true, onScreenWindowsOnly: true
-        )
-
-        // Find the topmost window that contains the mouse location.
-        // SCWindow.frame uses the same coordinate system as NSScreen (bottom-left origin).
-        for window in content.windows {
-            let frame = window.frame
-            guard frame.contains(mouseLocation) else { continue }
-            guard frame.width >= 100, frame.height >= 100 else { continue }
-            guard window.isOnScreen else { continue }
-
-            let filter = SCContentFilter(desktopIndependentWindow: window)
-            let config = SCStreamConfiguration()
-            config.width = Int(frame.width)
-            config.height = Int(frame.height)
-
-            return try await withCheckedThrowingContinuation { continuation in
-                SCScreenshotManager.captureImage(contentFilter: filter, configuration: config) { image, error in
-                    if let error {
-                        continuation.resume(throwing: error)
-                    } else {
-                        continuation.resume(returning: image)
-                    }
-                }
-            }
+        guard let frontApp = NSWorkspace.shared.frontmostApplication,
+              frontApp.processIdentifier != myPID else {
+            Log.write("🪟 No frontmost app or it's us, fallback")
+            return try await captureAroundMouse(size: 2000)
         }
 
-        return try await captureAroundMouse(size: fallbackSize)
+        let appPID = frontApp.processIdentifier
+        Log.write("🪟 Frontmost: \(frontApp.localizedName ?? "?") (pid: \(appPID))")
+
+        let content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)
+
+        // Find the largest on-screen window belonging to the frontmost app
+        let appWindows = content.windows.filter {
+            $0.owningApplication?.processID == appPID &&
+            $0.isOnScreen &&
+            $0.frame.width >= 100 &&
+            $0.frame.height >= 100
+        }.sorted { $0.frame.width * $0.frame.height > $1.frame.width * $1.frame.height }
+
+        guard let window = appWindows.first else {
+            Log.write("🪟 No window found for \(frontApp.localizedName ?? "?"), fallback")
+            return try await captureAroundMouse(size: 2000)
+        }
+
+        let frame = window.frame
+        Log.write("🪟 Capturing: \(Int(frame.width))x\(Int(frame.height))")
+
+        let filter = SCContentFilter(desktopIndependentWindow: window)
+        let config = SCStreamConfiguration()
+        config.width = Int(frame.width * 2) // Retina
+        config.height = Int(frame.height * 2)
+        config.showsCursor = false
+
+        return try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
     }
 
     // MARK: - Unified entry point
 
-    /// Capture using the specified mode.
     static func capture(mode: CaptureMode, fixedSize: CGFloat) async throws -> CGImage? {
         switch mode {
         case .fixedArea:
             return try await captureAroundMouse(size: fixedSize)
         case .smartWindow:
-            return try await captureWindowUnderMouse(fallbackSize: fixedSize)
+            return try await captureFrontmostWindow()
         }
     }
 }
