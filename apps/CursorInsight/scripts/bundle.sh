@@ -28,6 +28,15 @@ mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 
 cp "$BINARY" "$MACOS_DIR/$APP_NAME"
 
+# Copy app icon if it exists
+ICNS_SRC="$BUILD_DIR/CursorInsight.icns"
+if [[ -f "$ICNS_SRC" ]]; then
+  echo "Copying app icon..."
+  cp "$ICNS_SRC" "$RESOURCES_DIR/CursorInsight.icns"
+else
+  echo "Warning: $ICNS_SRC not found. Run scripts/generate_icon.swift first."
+fi
+
 cat > "$CONTENTS_DIR/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -42,6 +51,8 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
     <key>CFBundleShortVersionString</key>
     <string>0.1.0</string>
     <key>CFBundleExecutable</key>
+    <string>CursorInsight</string>
+    <key>CFBundleIconFile</key>
     <string>CursorInsight</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
