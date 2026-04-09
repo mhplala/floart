@@ -1,6 +1,7 @@
 // CursorInsight/CursorInsightApp.swift
 import SwiftUI
 import AppKit
+import SwiftData
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -28,6 +29,13 @@ struct CursorInsightApp: App {
     @AppStorage("cloudModel") private var cloudModel: String = "claude-sonnet-4-6-20250514"
     @AppStorage("cloudEndpoint") private var cloudEndpoint: String = "https://api.anthropic.com/v1/messages"
 
+    // Shared SwiftData model container
+    private let modelContainer: ModelContainer = {
+        let schema = Schema([InsightRecord.self])
+        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        return try! ModelContainer(for: schema, configurations: [config])
+    }()
+
     var body: some Scene {
         MenuBarExtra("CursorInsight", systemImage: orchestrator.isRunning ? "brain.head.profile.fill" : "brain.head.profile") {
             Toggle(orchestrator.isRunning ? "Running" : "Paused", isOn: Binding(
@@ -41,8 +49,17 @@ struct CursorInsightApp: App {
                     }
                 }
             ))
+            .task {
+                // Auto-start on first launch
+                configureOrchestrator()
+                orchestrator.start()
+            }
             Button(isExpanded ? "Collapse Panel" : "Expand Panel") {
                 togglePanel()
+            }
+            Divider()
+            Button("Open Today's Archive") {
+                openTodaysArchive()
             }
             Divider()
             Button("Settings...") {
@@ -58,6 +75,7 @@ struct CursorInsightApp: App {
         Settings {
             SettingsView()
         }
+        .modelContainer(modelContainer)
     }
 
     private func configureOrchestrator() {
@@ -88,6 +106,9 @@ struct CursorInsightApp: App {
         let archiveDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
             .appendingPathComponent("CursorInsight/archive")
         orchestrator.storageManager = StorageManager(archiveDirectory: archiveDir)
+
+        // Wire SwiftData model context
+        orchestrator.modelContext = ModelContext(modelContainer)
     }
 
     private func togglePanel() {
@@ -97,9 +118,30 @@ struct CursorInsightApp: App {
                 orchestrator: orchestrator,
                 onCollapse: { togglePanel() }
             )
-            panelController.show(panelView)
+            panelController.show(panelView, size: NSSize(width: 320, height: 400))
         } else {
-            panelController.close()
+            let capsuleView = CapsuleView(
+                isRunning: orchestrator.isRunning,
+                onTap: { togglePanel() }
+            )
+            panelController.show(capsuleView, size: NSSize(width: 80, height: 40))
         }
+    }
+
+    private func openTodaysArchive() {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let today = dateFormatter.string(from: Date())
+        let archiveDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("CursorInsight/archive")
+        let filePath = archiveDir.appendingPathComponent("\(today).md")
+
+        // Create file if it doesn't exist so we can open it
+        if !FileManager.default.fileExists(atPath: filePath.path) {
+            let header = StorageManager.dailyHeader(for: today)
+            try? header.write(to: filePath, atomically: true, encoding: .utf8)
+        }
+
+        NSWorkspace.shared.open(filePath)
     }
 }

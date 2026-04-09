@@ -6,15 +6,16 @@ import SwiftUI
 final class FloatingPanelController {
     private var panel: NSPanel?
 
-    func show<Content: View>(_ content: Content) {
+    func show<Content: View>(_ content: Content, size: NSSize = NSSize(width: 320, height: 400)) {
         if let panel {
             panel.contentView = NSHostingView(rootView: content)
+            updateSize(width: size.width, height: size.height)
             panel.orderFront(nil)
             return
         }
 
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 320, height: 400),
+            contentRect: NSRect(x: 0, y: 0, width: size.width, height: size.height),
             styleMask: [.nonactivatingPanel, .fullSizeContentView],
             backing: .buffered,
             defer: false

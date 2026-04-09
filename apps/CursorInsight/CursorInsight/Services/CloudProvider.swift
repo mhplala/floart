@@ -12,6 +12,9 @@ struct CloudProvider: AIProvider {
     let model: String
     let endpoint: String
 
+    var providerName: String { apiType.rawValue }
+    var modelName: String { model }
+
     func analyze(text: String, context: String?) async throws -> String {
         switch apiType {
         case .claude:

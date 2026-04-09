@@ -1,6 +1,7 @@
 // CursorInsight/Services/InsightOrchestrator.swift
 import SwiftUI
 import Combine
+import SwiftData
 
 @MainActor
 @Observable
@@ -20,6 +21,7 @@ final class InsightOrchestrator {
     let textBuffer = TextBuffer()
     let aiEngine = AIEngine()
     var storageManager: StorageManager?
+    var modelContext: ModelContext?
 
     private var captureTimer: Timer?
     private var analysisTimer: Timer?
@@ -111,9 +113,24 @@ final class InsightOrchestrator {
             建议：\(response.suggestion)
             """
 
-            // Persist
+            // Persist to markdown archive
             if let storage = storageManager {
                 try? storage.appendMarkdown(response)
+
+                // Persist to SwiftData
+                if let ctx = modelContext {
+                    let providerName = aiEngine.primaryProvider?.providerName ?? "unknown"
+                    let modelName = aiEngine.primaryProvider?.modelName ?? "unknown"
+                    storage.saveRecord(
+                        response,
+                        mouseX: lastMouseLocation.x,
+                        mouseY: lastMouseLocation.y,
+                        captureMode: captureMode,
+                        provider: providerName,
+                        model: modelName,
+                        context: ctx
+                    )
+                }
             }
 
             statusMessage = "Updated"

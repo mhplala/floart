@@ -2,6 +2,8 @@
 import Foundation
 
 protocol AIProvider: Sendable {
+    var providerName: String { get }
+    var modelName: String { get }
     func analyze(text: String, context: String?) async throws -> String
 }
 

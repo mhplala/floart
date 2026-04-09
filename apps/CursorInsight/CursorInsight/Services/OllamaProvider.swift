@@ -5,6 +5,9 @@ struct OllamaProvider: AIProvider {
     let baseURL: String
     let model: String
 
+    var providerName: String { "ollama" }
+    var modelName: String { model }
+
     func analyze(text: String, context: String?) async throws -> String {
         let url = URL(string: "\(baseURL)/api/generate")!
         var request = URLRequest(url: url)
