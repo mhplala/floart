@@ -1,4 +1,4 @@
-// CursorInsight/Services/AIEngine.swift
+// Floart/Services/AIEngine.swift
 import Foundation
 
 protocol AIProvider: Sendable {

@@ -1,4 +1,4 @@
-// CursorInsight/Utilities/TextSimilarity.swift
+// Floart/Utilities/TextSimilarity.swift
 import Foundation
 
 enum TextSimilarity {

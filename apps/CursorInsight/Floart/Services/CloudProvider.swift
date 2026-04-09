@@ -1,4 +1,4 @@
-// CursorInsight/Services/CloudProvider.swift
+// Floart/Services/CloudProvider.swift
 import Foundation
 
 enum CloudAPIType: String, Sendable, CaseIterable {

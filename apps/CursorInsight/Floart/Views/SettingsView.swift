@@ -1,4 +1,4 @@
-// CursorInsight/Views/SettingsView.swift
+// Floart/Views/SettingsView.swift
 import SwiftUI
 
 struct SettingsView: View {
@@ -96,7 +96,7 @@ struct SettingsView: View {
 
             Button("Open Archive Folder") {
                 let path = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-                    .appendingPathComponent("CursorInsight/archive")
+                    .appendingPathComponent("Floart/archive")
                 NSWorkspace.shared.open(path)
             }
         }

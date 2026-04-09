@@ -1,4 +1,4 @@
-// CursorInsight/Services/ScreenCapture.swift
+// Floart/Services/ScreenCapture.swift
 import AppKit
 import CoreGraphics
 import ScreenCaptureKit

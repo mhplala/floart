@@ -2,18 +2,18 @@
 import PackageDescription
 
 let package = Package(
-    name: "CursorInsight",
+    name: "Floart",
     platforms: [.macOS(.v26)],
     targets: [
         .executableTarget(
-            name: "CursorInsight",
-            path: "CursorInsight",
+            name: "Floart",
+            path: "Floart",
             resources: [.copy("Resources")]
         ),
         .testTarget(
-            name: "CursorInsightTests",
-            dependencies: ["CursorInsight"],
-            path: "CursorInsightTests"
+            name: "FloartTests",
+            dependencies: ["Floart"],
+            path: "FloartTests"
         ),
     ]
 )

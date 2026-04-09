@@ -1,6 +1,6 @@
-// CursorInsightTests/TextBufferTests.swift
+// FloartTests/TextBufferTests.swift
 import XCTest
-@testable import CursorInsight
+@testable import Floart
 
 final class TextBufferTests: XCTestCase {
     func testAppendAndFlushReturnsAccumulatedText() {

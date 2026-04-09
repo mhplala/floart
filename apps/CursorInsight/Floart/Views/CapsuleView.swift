@@ -1,4 +1,4 @@
-// CursorInsight/Views/CapsuleView.swift
+// Floart/Views/CapsuleView.swift
 import SwiftUI
 
 struct CapsuleView: View {

@@ -1,4 +1,4 @@
-// CursorInsight/Services/OllamaProvider.swift
+// Floart/Services/OllamaProvider.swift
 import Foundation
 
 struct OllamaProvider: AIProvider {

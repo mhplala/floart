@@ -1,6 +1,6 @@
-// CursorInsightTests/PlaceholderTests.swift
+// FloartTests/PlaceholderTests.swift
 import XCTest
-@testable import CursorInsight
+@testable import Floart
 
 final class PlaceholderTests: XCTestCase {
     func testPlaceholder() {

@@ -1,4 +1,4 @@
-// CursorInsight/Services/InsightOrchestrator.swift
+// Floart/Services/InsightOrchestrator.swift
 import SwiftUI
 import Combine
 import SwiftData

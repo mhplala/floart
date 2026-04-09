@@ -1,16 +1,17 @@
-// CursorInsight/CursorInsightApp.swift
+// Floart/FloartApp.swift
 import SwiftUI
 import AppKit
 import SwiftData
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
+        // Show in Dock (full app with menu bar + future main window)
+        NSApp.setActivationPolicy(.regular)
     }
 }
 
 @main
-struct CursorInsightApp: App {
+struct FloartApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var orchestrator = InsightOrchestrator()
     @State private var isExpanded = false
@@ -37,7 +38,7 @@ struct CursorInsightApp: App {
     }()
 
     var body: some Scene {
-        MenuBarExtra("CursorInsight", systemImage: orchestrator.isRunning ? "brain.head.profile.fill" : "brain.head.profile") {
+        MenuBarExtra("Floart", systemImage: orchestrator.isRunning ? "brain.head.profile.fill" : "brain.head.profile") {
             Toggle(orchestrator.isRunning ? "Running" : "Paused", isOn: Binding(
                 get: { orchestrator.isRunning },
                 set: { newValue in
@@ -62,8 +63,8 @@ struct CursorInsightApp: App {
                 openTodaysArchive()
             }
             Divider()
-            Button("Settings...") {
-                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+            SettingsLink {
+                Text("Settings...")
             }.keyboardShortcut(",")
             Divider()
             Button("Quit") {
@@ -104,7 +105,7 @@ struct CursorInsightApp: App {
 
         // Configure storage
         let archiveDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("CursorInsight/archive")
+            .appendingPathComponent("Floart/archive")
         orchestrator.storageManager = StorageManager(archiveDirectory: archiveDir)
 
         // Wire SwiftData model context
@@ -133,7 +134,7 @@ struct CursorInsightApp: App {
         dateFormatter.dateFormat = "yyyy-MM-dd"
         let today = dateFormatter.string(from: Date())
         let archiveDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("CursorInsight/archive")
+            .appendingPathComponent("Floart/archive")
         let filePath = archiveDir.appendingPathComponent("\(today).md")
 
         // Create file if it doesn't exist so we can open it

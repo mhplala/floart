@@ -1,5 +1,5 @@
 #!/usr/bin/env swift
-// CursorInsight App Icon Generator
+// Floart App Icon Generator
 // Draws a 1024x1024 icon: gradient background, stylized eye with cursor overlay
 
 import AppKit
@@ -13,9 +13,9 @@ let projectDir: String = {
     return url.deletingLastPathComponent().deletingLastPathComponent().path
 }()
 let buildDir = projectDir + "/build"
-let iconsetDir = buildDir + "/CursorInsight.iconset"
+let iconsetDir = buildDir + "/Floart.iconset"
 let outputPNG = buildDir + "/icon_1024.png"
-let outputICNS = buildDir + "/CursorInsight.icns"
+let outputICNS = buildDir + "/Floart.icns"
 
 // MARK: - Drawing
 

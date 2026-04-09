@@ -1,6 +1,6 @@
-// CursorInsightTests/AIEngineTests.swift
+// FloartTests/AIEngineTests.swift
 import XCTest
-@testable import CursorInsight
+@testable import Floart
 
 final class AIEngineTests: XCTestCase {
     func testParseStructuredResponseWithAllSections() {

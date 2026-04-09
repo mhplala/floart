@@ -1,4 +1,4 @@
-// CursorInsight/Models/AIResponse.swift
+// Floart/Models/AIResponse.swift
 import Foundation
 
 struct AIResponse: Sendable, Equatable {

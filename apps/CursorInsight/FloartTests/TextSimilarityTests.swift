@@ -1,6 +1,6 @@
-// CursorInsightTests/TextSimilarityTests.swift
+// FloartTests/TextSimilarityTests.swift
 import XCTest
-@testable import CursorInsight
+@testable import Floart
 
 final class TextSimilarityTests: XCTestCase {
     func testIdenticalTextsReturn1() {

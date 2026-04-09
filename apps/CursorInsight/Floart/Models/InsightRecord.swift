@@ -1,4 +1,4 @@
-// CursorInsight/Models/InsightRecord.swift
+// Floart/Models/InsightRecord.swift
 import Foundation
 import SwiftData
 

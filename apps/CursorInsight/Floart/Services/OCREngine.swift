@@ -1,4 +1,4 @@
-// CursorInsight/Services/OCREngine.swift
+// Floart/Services/OCREngine.swift
 import Vision
 import CoreGraphics
 

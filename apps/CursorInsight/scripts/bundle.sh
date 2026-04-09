@@ -3,8 +3,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-APP_NAME="CursorInsight"
-BUNDLE_ID="com.automemory.cursorinsight"
+APP_NAME="Floart"
+BUNDLE_ID="com.automemory.floart"
 VERSION="0.1.0"
 BUILD_DIR="$PROJECT_DIR/build"
 APP_BUNDLE="$BUILD_DIR/$APP_NAME.app"
@@ -29,10 +29,10 @@ mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 cp "$BINARY" "$MACOS_DIR/$APP_NAME"
 
 # Copy app icon if it exists
-ICNS_SRC="$BUILD_DIR/CursorInsight.icns"
+ICNS_SRC="$BUILD_DIR/Floart.icns"
 if [[ -f "$ICNS_SRC" ]]; then
   echo "Copying app icon..."
-  cp "$ICNS_SRC" "$RESOURCES_DIR/CursorInsight.icns"
+  cp "$ICNS_SRC" "$RESOURCES_DIR/Floart.icns"
 else
   echo "Warning: $ICNS_SRC not found. Run scripts/generate_icon.swift first."
 fi
@@ -43,27 +43,27 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>CursorInsight</string>
+    <string>Floart</string>
     <key>CFBundleIdentifier</key>
-    <string>com.automemory.cursorinsight</string>
+    <string>com.automemory.floart</string>
     <key>CFBundleVersion</key>
     <string>0.1.0</string>
     <key>CFBundleShortVersionString</key>
     <string>0.1.0</string>
     <key>CFBundleExecutable</key>
-    <string>CursorInsight</string>
+    <string>Floart</string>
     <key>CFBundleIconFile</key>
-    <string>CursorInsight</string>
+    <string>Floart</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>LSMinimumSystemVersion</key>
     <string>26.0</string>
     <key>LSUIElement</key>
-    <true/>
+    <false/>
     <key>NSScreenCaptureUsageDescription</key>
-    <string>CursorInsight needs screen recording permission to capture the area around your cursor for OCR analysis.</string>
+    <string>Floart needs screen recording permission to capture the area around your cursor for OCR analysis.</string>
     <key>NSAppleEventsUsageDescription</key>
-    <string>CursorInsight needs accessibility access for smart window detection.</string>
+    <string>Floart needs accessibility access for smart window detection.</string>
 </dict>
 </plist>
 PLIST

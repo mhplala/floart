@@ -1,4 +1,4 @@
-// CursorInsight/Services/StorageManager.swift
+// Floart/Services/StorageManager.swift
 import Foundation
 import SwiftData
 
@@ -21,7 +21,7 @@ final class StorageManager: @unchecked Sendable {
     // MARK: - Markdown
 
     static func dailyHeader(for dateString: String) -> String {
-        "# CursorInsight 日志 — \(dateString)\n\n"
+        "# Floart 日志 — \(dateString)\n\n"
     }
 
     static func formatMarkdownEntry(_ response: AIResponse) -> String {

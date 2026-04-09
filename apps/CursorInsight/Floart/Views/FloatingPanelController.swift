@@ -1,4 +1,4 @@
-// CursorInsight/Views/FloatingPanelController.swift
+// Floart/Views/FloatingPanelController.swift
 import AppKit
 import SwiftUI
 

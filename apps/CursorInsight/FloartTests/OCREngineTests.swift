@@ -1,7 +1,7 @@
-// CursorInsightTests/OCREngineTests.swift
+// FloartTests/OCREngineTests.swift
 import XCTest
 import CoreGraphics
-@testable import CursorInsight
+@testable import Floart
 
 final class OCREngineTests: XCTestCase {
     func testRecognizeTextFromBlankImage() async throws {

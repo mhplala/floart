@@ -1,4 +1,4 @@
-// CursorInsight/Services/TextBuffer.swift
+// Floart/Services/TextBuffer.swift
 import Foundation
 
 struct BufferEntry: Sendable {

@@ -1,4 +1,4 @@
-// CursorInsight/Views/InsightPanelView.swift
+// Floart/Views/InsightPanelView.swift
 import SwiftUI
 
 struct InsightPanelView: View {
@@ -11,7 +11,7 @@ struct InsightPanelView: View {
             HStack {
                 Image(systemName: "brain.head.profile.fill")
                     .font(.system(size: 16))
-                Text("CursorInsight")
+                Text("Floart")
                     .font(.headline)
                 Spacer()
                 Button {

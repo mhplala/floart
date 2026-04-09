@@ -1,6 +1,6 @@
-// CursorInsightTests/StorageManagerTests.swift
+// FloartTests/StorageManagerTests.swift
 import XCTest
-@testable import CursorInsight
+@testable import Floart
 
 final class StorageManagerTests: XCTestCase {
     func testFormatMarkdownEntry() {
@@ -23,6 +23,6 @@ final class StorageManagerTests: XCTestCase {
 
     func testFormatDailyHeader() {
         let header = StorageManager.dailyHeader(for: "2026-04-09")
-        XCTAssertEqual(header, "# CursorInsight 日志 — 2026-04-09\n\n")
+        XCTAssertEqual(header, "# Floart 日志 — 2026-04-09\n\n")
     }
 }
