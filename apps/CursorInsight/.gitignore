@@ -1,0 +1,4 @@
+.build/
+*.xcuserstate
+*.xcworkspace
+DerivedData/
