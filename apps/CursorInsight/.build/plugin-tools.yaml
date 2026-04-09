@@ -1,0 +1,157 @@
+client:
+  name: basic
+  file-system: device-agnostic
+tools: {}
+targets:
+  "CursorInsight-arm64-apple-macosx-debug.exe": ["<CursorInsight-arm64-apple-macosx-debug.exe>"]
+  "CursorInsight-arm64-apple-macosx-debug.module": ["<CursorInsight-arm64-apple-macosx-debug.module>"]
+  "CursorInsightPackageTests-arm64-apple-macosx-debug.module": ["<CursorInsightPackageTests-arm64-apple-macosx-debug.module>"]
+  "CursorInsightPackageTests-arm64-apple-macosx-debug.test": ["<CursorInsightPackageTests-arm64-apple-macosx-debug.test>"]
+  "CursorInsightTests-arm64-apple-macosx-debug.module": ["<CursorInsightTests-arm64-apple-macosx-debug.module>"]
+  "PackageStructure": ["<PackageStructure>"]
+  "main": ["<CursorInsight-arm64-apple-macosx-debug.exe>","<CursorInsight-arm64-apple-macosx-debug.module>"]
+  "test": ["<CursorInsight-arm64-apple-macosx-debug.exe>","<CursorInsight-arm64-apple-macosx-debug.module>","<CursorInsightPackageTests-arm64-apple-macosx-debug.test>","<CursorInsightTests-arm64-apple-macosx-debug.module>"]
+default: "main"
+nodes:
+  "/Users/stev/Dev/Automemory/apps/CursorInsight/CursorInsight/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+  "/Users/stev/Dev/Automemory/apps/CursorInsight/CursorInsightTests/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+  "/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight":
+    is-mutated: true
+commands:
+  "/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight-entitlement.plist":
+    tool: write-auxiliary-file
+    inputs: ["<entitlement-plist>","<com.apple.security.get-task-allow>"]
+    outputs: ["/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight-entitlement.plist"]
+    description: "Write auxiliary file /Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight-entitlement.plist"
+
+  "/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/stev/Dev/Automemory/apps/CursorInsight/CursorInsight/CursorInsightApp.swift","/Users/stev/Dev/Automemory/apps/CursorInsight/CursorInsight/Models/AIResponse.swift","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.build/DerivedSources/resource_bundle_accessor.swift"]
+    outputs: ["/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.build/sources"]
+    description: "Write auxiliary file /Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.build/sources"
+
+  "/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.product/Objects.LinkFileList":
+    tool: write-auxiliary-file
+    inputs: ["<link-file-list>","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.build/AIResponse.swift.o","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.build/CursorInsightApp.swift.o","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.build/resource_bundle_accessor.swift.o"]
+    outputs: ["/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.product/Objects.LinkFileList"]
+    description: "Write auxiliary file /Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.product/Objects.LinkFileList"
+
+  "/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightPackageTests.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightPackageTests.derived/runner.swift"]
+    outputs: ["/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightPackageTests.build/sources"]
+    description: "Write auxiliary file /Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightPackageTests.build/sources"
+
+  "/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightPackageTests.derived/runner.swift":
+    tool: test-entry-point-tool
+    inputs: []
+    outputs: ["/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightPackageTests.derived/runner.swift"]
+
+  "/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightPackageTests.product/Objects.LinkFileList":
+    tool: write-auxiliary-file
+    inputs: ["<link-file-list>","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.build/AIResponse.swift.o","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.build/CursorInsightApp.swift.o","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.build/resource_bundle_accessor.swift.o","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightPackageTests.build/runner.swift.o","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightTests.build/PlaceholderTests.swift.o"]
+    outputs: ["/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightPackageTests.product/Objects.LinkFileList"]
+    description: "Write auxiliary file /Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightPackageTests.product/Objects.LinkFileList"
+
+  "/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightTests.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/stev/Dev/Automemory/apps/CursorInsight/CursorInsightTests/PlaceholderTests.swift"]
+    outputs: ["/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightTests.build/sources"]
+    description: "Write auxiliary file /Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightTests.build/sources"
+
+  "/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight_CursorInsight.bundle/Resources":
+    tool: copy-tool
+    inputs: ["/Users/stev/Dev/Automemory/apps/CursorInsight/CursorInsight/Resources/"]
+    outputs: ["/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight_CursorInsight.bundle/Resources/"]
+    description: "Copying /Users/stev/Dev/Automemory/apps/CursorInsight/CursorInsight/Resources"
+
+  "/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt":
+    tool: write-auxiliary-file
+    inputs: ["<swift-get-version>","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"]
+    outputs: ["/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"]
+    always-out-of-date: "true"
+    description: "Write auxiliary file /Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+
+  "<CursorInsight-arm64-apple-macosx-debug.exe>":
+    tool: phony
+    inputs: ["<CursorInsight-arm64-apple-macosx-debug.exe-CodeSigning>"]
+    outputs: ["<CursorInsight-arm64-apple-macosx-debug.exe>"]
+
+  "<CursorInsight-arm64-apple-macosx-debug.module>":
+    tool: phony
+    inputs: ["/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.build/CursorInsightApp.swift.o","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.build/AIResponse.swift.o","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.build/resource_bundle_accessor.swift.o","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/Modules/CursorInsight.swiftmodule"]
+    outputs: ["<CursorInsight-arm64-apple-macosx-debug.module>"]
+
+  "<CursorInsightPackageTests-arm64-apple-macosx-debug.module>":
+    tool: phony
+    inputs: ["/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightPackageTests.build/runner.swift.o","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/Modules/CursorInsightPackageTests.swiftmodule"]
+    outputs: ["<CursorInsightPackageTests-arm64-apple-macosx-debug.module>"]
+
+  "<CursorInsightPackageTests-arm64-apple-macosx-debug.test>":
+    tool: phony
+    inputs: ["/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightPackageTests.xctest/Contents/MacOS/CursorInsightPackageTests"]
+    outputs: ["<CursorInsightPackageTests-arm64-apple-macosx-debug.test>"]
+
+  "<CursorInsightTests-arm64-apple-macosx-debug.module>":
+    tool: phony
+    inputs: ["/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightTests.build/PlaceholderTests.swift.o","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/Modules/CursorInsightTests.swiftmodule"]
+    outputs: ["<CursorInsightTests-arm64-apple-macosx-debug.module>"]
+
+  "C.CursorInsight-arm64-apple-macosx-debug.exe":
+    tool: shell
+    inputs: ["/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.build/AIResponse.swift.o","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.build/CursorInsightApp.swift.o","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.build/resource_bundle_accessor.swift.o","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.product/Objects.LinkFileList"]
+    outputs: ["/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight"]
+    description: "Linking ./.build/arm64-apple-macosx/debug/CursorInsight"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-L","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug","-o","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight","-module-name","CursorInsight","-Xlinker","-no_warn_duplicate_libraries","-emit-executable","-Xlinker","-alias","-Xlinker","_CursorInsight_main","-Xlinker","_main","-Xlinker","-rpath","-Xlinker","@loader_path","@/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.product/Objects.LinkFileList","-target","arm64-apple-macosx26.0","-Xlinker","-add_ast_path","-Xlinker","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/Modules/CursorInsight.swiftmodule","-plugin-path","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g"]
+
+  "C.CursorInsight-arm64-apple-macosx-debug.exe-entitlements":
+    tool: shell
+    inputs: ["/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight-entitlement.plist"]
+    outputs: ["<CursorInsight-arm64-apple-macosx-debug.exe-CodeSigning>"]
+    description: "Applying debug entitlements to ./.build/arm64-apple-macosx/debug/CursorInsight"
+    args: ["codesign","--force","--sign","-","--entitlements","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight-entitlement.plist","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight"]
+
+  "C.CursorInsight-arm64-apple-macosx-debug.module":
+    tool: shell
+    inputs: ["/Users/stev/Dev/Automemory/apps/CursorInsight/CursorInsight/CursorInsightApp.swift","/Users/stev/Dev/Automemory/apps/CursorInsight/CursorInsight/Models/AIResponse.swift","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.build/DerivedSources/resource_bundle_accessor.swift","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt","<CursorInsight-arm64-apple-macosx-debug.module-resources>","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.build/sources"]
+    outputs: ["/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.build/CursorInsightApp.swift.o","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.build/AIResponse.swift.o","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.build/resource_bundle_accessor.swift.o","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/Modules/CursorInsight.swiftmodule"]
+    description: "Compiling Swift Module 'CursorInsight' (3 sources)"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-module-name","CursorInsight","-emit-dependencies","-emit-module","-emit-module-path","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/Modules/CursorInsight.swiftmodule","-output-file-map","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.build/output-file-map.json","-incremental","-c","@/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.build/sources","-I","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/Modules","-target","arm64-apple-macosx26.0","-incremental","-enable-batch-mode","-serialize-diagnostics","-index-store-path","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/index/store","-Onone","-enable-testing","-j18","-DSWIFT_PACKAGE","-DDEBUG","-DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE","-module-cache-path","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/ModuleCache","-parseable-output","-Xfrontend","-entry-point-function-name","-Xfrontend","CursorInsight_main","-swift-version","6","-plugin-path","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g","-Xcc","-isysroot","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk","-Xcc","-F","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-Xcc","-fPIC","-Xcc","-g","-package-name","cursorinsight"]
+
+  "C.CursorInsightPackageTests-arm64-apple-macosx-debug.module":
+    tool: shell
+    inputs: ["/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightPackageTests.derived/runner.swift","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/Modules/CursorInsightTests.swiftmodule","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightPackageTests.build/sources"]
+    outputs: ["/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightPackageTests.build/runner.swift.o","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/Modules/CursorInsightPackageTests.swiftmodule"]
+    description: "Compiling Swift Module 'CursorInsightPackageTests' (1 sources)"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-module-name","CursorInsightPackageTests","-emit-dependencies","-emit-module","-emit-module-path","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/Modules/CursorInsightPackageTests.swiftmodule","-output-file-map","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightPackageTests.build/output-file-map.json","-parse-as-library","-incremental","-c","@/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightPackageTests.build/sources","-I","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/Modules","-target","arm64-apple-macosx26.0","-incremental","-enable-batch-mode","-serialize-diagnostics","-index-store-path","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/index/store","-Onone","-enable-testing","-Xfrontend","-enable-cross-import-overlays","-j18","-DSWIFT_PACKAGE","-DDEBUG","-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE","-module-cache-path","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/ModuleCache","-parseable-output","-parse-as-library","-emit-objc-header","-emit-objc-header-path","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightPackageTests.build/include/CursorInsightPackageTests-Swift.h","-plugin-path","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g","-Xcc","-isysroot","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk","-Xcc","-F","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-Xcc","-fPIC","-Xcc","-g","-package-name","cursorinsight"]
+
+  "C.CursorInsightPackageTests-arm64-apple-macosx-debug.test":
+    tool: shell
+    inputs: ["/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.build/AIResponse.swift.o","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.build/CursorInsightApp.swift.o","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight.build/resource_bundle_accessor.swift.o","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightPackageTests.build/runner.swift.o","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightTests.build/PlaceholderTests.swift.o","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightPackageTests.product/Objects.LinkFileList"]
+    outputs: ["/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightPackageTests.xctest/Contents/MacOS/CursorInsightPackageTests"]
+    description: "Linking ./.build/arm64-apple-macosx/debug/CursorInsightPackageTests.xctest/Contents/MacOS/CursorInsightPackageTests"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-L","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug","-o","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightPackageTests.xctest/Contents/MacOS/CursorInsightPackageTests","-module-name","CursorInsightPackageTests","-Xlinker","-no_warn_duplicate_libraries","-Xlinker","-bundle","-Xlinker","-rpath","-Xlinker","@loader_path/../../../","@/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightPackageTests.product/Objects.LinkFileList","-target","arm64-apple-macosx26.0","-Xlinker","-add_ast_path","-Xlinker","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/Modules/CursorInsight.swiftmodule","-Xlinker","-add_ast_path","-Xlinker","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/Modules/CursorInsightPackageTests.swiftmodule","-Xlinker","-add_ast_path","-Xlinker","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/Modules/CursorInsightTests.swiftmodule","-plugin-path","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g"]
+
+  "C.CursorInsightTests-arm64-apple-macosx-debug.module":
+    tool: shell
+    inputs: ["/Users/stev/Dev/Automemory/apps/CursorInsight/CursorInsightTests/PlaceholderTests.swift","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightTests.build/sources"]
+    outputs: ["/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightTests.build/PlaceholderTests.swift.o","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/Modules/CursorInsightTests.swiftmodule"]
+    description: "Compiling Swift Module 'CursorInsightTests' (1 sources)"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-module-name","CursorInsightTests","-emit-dependencies","-emit-module","-emit-module-path","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/Modules/CursorInsightTests.swiftmodule","-output-file-map","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightTests.build/output-file-map.json","-parse-as-library","-incremental","-c","@/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightTests.build/sources","-I","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/Modules","-target","arm64-apple-macosx26.0","-incremental","-enable-batch-mode","-serialize-diagnostics","-index-store-path","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/index/store","-Onone","-enable-testing","-Xfrontend","-enable-cross-import-overlays","-j18","-DSWIFT_PACKAGE","-DDEBUG","-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE","-module-cache-path","/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/ModuleCache","-parseable-output","-parse-as-library","-swift-version","6","-plugin-path","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g","-Xcc","-isysroot","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk","-Xcc","-F","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-Xcc","-fPIC","-Xcc","-g","-package-name","cursorinsight"]
+
+  "CursorInsight-arm64-apple-macosx-debug.module-resources":
+    tool: phony
+    inputs: ["/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight_CursorInsight.bundle/Resources/"]
+    outputs: ["<CursorInsight-arm64-apple-macosx-debug.module-resources>"]
+
+  "PackageStructure":
+    tool: package-structure-tool
+    inputs: ["/Users/stev/Dev/Automemory/apps/CursorInsight/CursorInsight/","/Users/stev/Dev/Automemory/apps/CursorInsight/CursorInsightTests/","/Users/stev/Dev/Automemory/apps/CursorInsight/Package.swift","/Users/stev/Dev/Automemory/apps/CursorInsight/Package.resolved"]
+    outputs: ["<PackageStructure>"]
+    description: "Planning build"
+    allow-missing-inputs: true
+

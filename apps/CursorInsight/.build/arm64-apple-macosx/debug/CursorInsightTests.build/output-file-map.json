@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightTests.build/primary.swiftdeps"
+  },
+  "/Users/stev/Dev/Automemory/apps/CursorInsight/CursorInsightTests/PlaceholderTests.swift": {
+    "dependencies": "/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightTests.build/PlaceholderTests.d",
+    "object": "/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightTests.build/PlaceholderTests.swift.o",
+    "swiftmodule": "/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightTests.build/PlaceholderTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightTests.build/PlaceholderTests.swiftdeps",
+    "diagnostics": "/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsightTests.build/PlaceholderTests.dia"
+  }
+}

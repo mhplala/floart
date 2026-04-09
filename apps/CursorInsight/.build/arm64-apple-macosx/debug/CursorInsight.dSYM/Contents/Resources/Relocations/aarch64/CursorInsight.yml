@@ -1,0 +1,5 @@
+---
+triple:          'arm64-apple-darwin'
+binary-path:     '/Users/stev/Dev/Automemory/apps/CursorInsight/.build/arm64-apple-macosx/debug/CursorInsight'
+relocations:     []
+...
