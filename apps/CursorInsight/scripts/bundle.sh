@@ -71,8 +71,8 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
 </plist>
 PLIST
 
-echo "Signing with ad-hoc signature..."
-codesign --force --sign - "$APP_BUNDLE"
+echo "Signing with Developer ID..."
+codesign --force --sign "Developer ID Application: Stev Wang (UK68KKX58X)" "$APP_BUNDLE"
 
 echo ""
 echo "Done! .app bundle is at:"
