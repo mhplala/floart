@@ -4,7 +4,20 @@ import Foundation
 protocol AIProvider: Sendable {
     var providerName: String { get }
     var modelName: String { get }
-    func analyze(text: String, context: String?) async throws -> String
+    func analyze(text: String, context: String?, styleFragment: String?, conversationFragment: String?) async throws -> String
+    /// Raw completion without any system prompt — for internal distillation tasks
+    /// (style profile extraction, conversation summarization, daily reports).
+    func rawComplete(prompt: String) async throws -> String
+}
+
+extension AIProvider {
+    /// Convenience: call without fragments.
+    func analyze(text: String, context: String?) async throws -> String {
+        try await analyze(text: text, context: context, styleFragment: nil, conversationFragment: nil)
+    }
+    func analyze(text: String, context: String?, styleFragment: String?) async throws -> String {
+        try await analyze(text: text, context: context, styleFragment: styleFragment, conversationFragment: nil)
+    }
 }
 
 enum AIResponseParser {
@@ -31,11 +44,13 @@ final class AIEngine: @unchecked Sendable {
     var fallbackProvider: (any AIProvider)?
     private let timeoutSeconds: TimeInterval = 60
 
-    func analyze(text: String, context: String?) async -> AIResponse {
+    func analyze(text: String, context: String?, styleFragment: String? = nil, conversationFragment: String? = nil) async -> AIResponse {
         if let primary = primaryProvider {
             do {
+                let style = styleFragment
+                let conv = conversationFragment
                 let raw = try await withTimeout(seconds: timeoutSeconds) {
-                    try await primary.analyze(text: text, context: context)
+                    try await primary.analyze(text: text, context: context, styleFragment: style, conversationFragment: conv)
                 }
                 return AIResponseParser.parse(raw, ocrText: text)
             } catch {
@@ -43,8 +58,10 @@ final class AIEngine: @unchecked Sendable {
                 if let fallback = fallbackProvider {
                     Log.write("🔄 Trying fallback provider...")
                     do {
+                        let style = styleFragment
+                        let conv = conversationFragment
                         let raw = try await withTimeout(seconds: timeoutSeconds) {
-                            try await fallback.analyze(text: text, context: context)
+                            try await fallback.analyze(text: text, context: context, styleFragment: style, conversationFragment: conv)
                         }
                         return AIResponseParser.parse(raw, ocrText: text)
                     } catch {

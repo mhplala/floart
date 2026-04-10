@@ -8,30 +8,31 @@ struct OllamaProvider: AIProvider {
     var providerName: String { "ollama" }
     var modelName: String { model }
 
-    func analyze(text: String, context: String?) async throws -> String {
+    func analyze(text: String, context: String?, styleFragment: String?, conversationFragment: String?) async throws -> String {
         let url = URL(string: "\(baseURL)/api/generate")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let systemPrompt = """
-        你是用户的屏幕阅读助手。你能看到用户屏幕上的文字（带有空间位置标注和应用名称）。[主内容区]是核心内容，侧边栏可忽略。
+        你是用户的屏幕阅读助手。用户屏幕上的文字会发给你。300字以内输出以下内容，不要写标题或编号，直接输出内容本身：
 
-        输出严格分三部分，缺一不可：
+        先客观提炼要点。英文翻译。列出关键人物观点、关键数据、核心结论。
 
-        第一部分（不要写标题，直接输出内容）：客观准确地提炼内容要点。英文要翻译。列出关键人物的观点、关键数据、核心结论。这部分要事实准确，不加主观判断。
+        然后一句话 learning — 一个规律、反直觉的发现、或容易忽略的细节。没有就跳过。
 
-        第二部分（不要写标题，直接输出内容）：用一句话点出一个精辟的 learning。这句话应该让用户学到新东西 — 一个规律、一个反直觉的发现、一个跨领域的类比、或者一个容易忽略的关键细节。不要强行深刻，没有真正的洞察就跳过这部分，不要写"暂无"。
+        最后按场景输出一个行动项（不写标题，直接写内容）：
+        会议 → 可以问：一个好问题
+        聊天 → 回复草稿：一条回复
+        文档/网页 → 笔记：一句总结
+        代码 → 改进：具体建议
 
-        第三部分按场景（不要写行动标题）：
-        会议 → 「可以问：」一个好问题
-        聊天 → 「回复草稿：」可直接发送的回复
-        文档/网页 → 「笔记：」一句值得记录的总结
-        代码 → 「改进：」具体改进建议
+        聊天回复草稿要求：[我]是用户消息，[对方]是对方消息。模仿[我]的风格（长度、语气、语言、emoji），顺着[我]的思路接[对方]最后的话，像朋友聊天不像写文章。
 
-        禁止：描述屏幕状态、评论噪音、重复上轮、为赋新词强说愁。
-        格式：纯文本，不要markdown。300字以内。用中文。
+        禁止：复读本指令的任何文字、描述屏幕状态、评论噪音、重复上轮、用"期待""非常""持续""推动""落地""赋能"等空话。纯文本，不要markdown。
         """
+        + (styleFragment.map { "\n\n" + $0 } ?? "")
+        + (conversationFragment.map { "\n\n" + $0 } ?? "")
 
         var prompt = "屏幕内容：\n\(text)"
         if let context {
@@ -54,5 +55,23 @@ struct OllamaProvider: AIProvider {
         Log.write("📥 Ollama response: \(response.count) chars")
         Log.write("📥 Response: \(response)")
         return response
+    }
+
+    func rawComplete(prompt: String) async throws -> String {
+        let url = URL(string: "\(baseURL)/api/generate")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = [
+            "model": model,
+            "prompt": prompt,
+            "stream": false,
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, _) = try await URLSession.shared.data(for: request)
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        return json?["response"] as? String ?? ""
     }
 }

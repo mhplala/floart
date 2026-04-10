@@ -56,12 +56,18 @@ final class InsightOrchestrator {
     let aiEngine = AIEngine()
     var storageManager: StorageManager?
     var modelContext: ModelContext?
+    var styleProfileManager: StyleProfileManager?
+    var conversationHistoryManager: ConversationHistoryManager?
+    private var currentConversationKey: String?
 
     private var captureTimer: Timer?
-    private var lastContext: String?
+    private var styleRefreshTimer: Timer?
+    /// Per-conversation last AI context, keyed by conversation key.
+    private var contextByConversation: [String: String] = [:]
     private var lastMouseLocation: NSPoint = .zero
     private var lastImageHash: UInt64 = 0
     private var lastFrontAppName: String = ""
+    private var newMessagesSinceLastRefresh: Int = 0
 
     // MARK: - Lifecycle
 
@@ -76,7 +82,13 @@ final class InsightOrchestrator {
             Task { @MainActor in self?.captureAndOCR() }
         }
 
-        // No separate analysis timer — analysis triggers immediately after OCR
+        // Style profile refresh timer — every 60 minutes
+        styleRefreshTimer = Timer.scheduledTimer(
+            withTimeInterval: 3600, repeats: true
+        ) { [weak self] _ in
+            Task { @MainActor in await self?.refreshStyleProfile() }
+        }
+
         Log.write("🚀 Pipeline started — capture: \(self.captureInterval)s, mode: \(self.captureMode.rawValue), size: \(self.captureSize)")
         captureAndOCR()
     }
@@ -84,6 +96,8 @@ final class InsightOrchestrator {
     func stop() {
         captureTimer?.invalidate()
         captureTimer = nil
+        styleRefreshTimer?.invalidate()
+        styleRefreshTimer = nil
         isRunning = false
         statusMessage = "Paused"
     }
@@ -182,6 +196,48 @@ final class InsightOrchestrator {
                 if !cleanedZoned.isEmpty {
                     Log.write("🔍 Zoned text:\n\(String(cleanedZoned.prefix(500)))")
                     buffer.append(cleanedZoned, at: .now, appName: frontApp)
+
+                    // Collect [我] messages for style profile
+                    if let spm = await self?.styleProfileManager {
+                        let newCount = spm.collectMessages(from: cleanedZoned)
+                        if newCount > 0 {
+                            await MainActor.run {
+                                self?.newMessagesSinceLastRefresh += newCount
+                                // Cold start: refresh after 10 new messages if no profile yet
+                                if !(spm.hasProfile) && (self?.newMessagesSinceLastRefresh ?? 0) >= 10 {
+                                    self?.newMessagesSinceLastRefresh = 0
+                                    Task { await self?.refreshStyleProfile() }
+                                }
+                            }
+                        }
+                    }
+
+                    // Collect messages for conversation history
+                    if let chm = await self?.conversationHistoryManager {
+                        // Build conversation key from app name + chat title
+                        let chatTitle = zonedResult.chatTitle ?? "unknown"
+                        let rawKey = "\(frontApp):\(chatTitle)"
+                        let key = chm.resolveKey(rawKey)
+
+                        let lines = cleanedZoned.components(separatedBy: "\n")
+                        let taggedMessages = lines.filter { $0.hasPrefix("[我] ") || $0.hasPrefix("[对方] ") }
+                        if !taggedMessages.isEmpty {
+                            chm.addMessages(taggedMessages, forConversation: key)
+                            // Check if summary refresh needed
+                            if chm.needsSummaryRefresh(forConversation: key) {
+                                let convKey = key
+                                await MainActor.run {
+                                    self?.currentConversationKey = convKey
+                                    Task { await self?.refreshConversationSummary(key: convKey) }
+                                }
+                            } else {
+                                await MainActor.run { self?.currentConversationKey = key }
+                            }
+                        } else {
+                            await MainActor.run { self?.currentConversationKey = key }
+                        }
+                    }
+
                     // Trigger analysis immediately
                     await MainActor.run { Task { await self?.analyzeBuffer() } }
                 } else {
@@ -193,6 +249,21 @@ final class InsightOrchestrator {
                 await MainActor.run { self?.statusMessage = message }
             }
         }
+    }
+
+    private func refreshConversationSummary(key: String) async {
+        guard let chm = conversationHistoryManager,
+              let provider = aiEngine.primaryProvider else { return }
+        Log.write("📚 Refreshing conversation summary for \"\(key)\"...")
+        await chm.refreshSummary(forConversation: key, using: provider)
+    }
+
+    private func refreshStyleProfile() async {
+        guard let spm = styleProfileManager,
+              let provider = aiEngine.primaryProvider else { return }
+        Log.write("📝 Refreshing style profile...")
+        await spm.refreshProfile(using: provider)
+        newMessagesSinceLastRefresh = 0
     }
 
     private func analyzeBuffer() async {
@@ -215,19 +286,29 @@ final class InsightOrchestrator {
             return
         }
 
-        // Extract main content only (strip zone headers) for archiving
+        // Extract main content only (strip zone headers)
         let mainContent = extractMainContent(from: combinedText)
 
-        // Build context with app name for scene-aware analysis
+        // Only send main content area to AI — sidebars contain unrelated chat previews
         let appName = entries.last?.appName ?? lastFrontAppName
-        let textWithContext = "[当前应用: \(appName)]\n\n\(combinedText)"
+        let textForAI = mainContent.isEmpty ? combinedText : mainContent
+        let textWithContext = "[当前应用: \(appName)]\n\n\(textForAI)"
 
-        Log.write("🧠 Analysis starting — app: \(appName), \(entries.count) entries, \(combinedText.count) chars")
-        Log.write("🧠 Combined text preview: \(String(combinedText.prefix(300)))")
+        Log.write("🧠 Analysis starting — app: \(appName), \(entries.count) entries, \(textForAI.count) chars (full: \(combinedText.count))")
+        Log.write("🧠 Main content preview: \(String(textForAI.prefix(300)))")
 
         statusMessage = "Analyzing..."
         let aiStart = Date()
-        let response = await aiEngine.analyze(text: textWithContext, context: lastContext)
+        let styleFragment = styleProfileManager?.promptFragment()
+        let convKey = currentConversationKey
+        let conversationFragment: String? = {
+            guard let key = convKey,
+                  let chm = conversationHistoryManager else { return nil }
+            return chm.promptFragment(forConversation: key)
+        }()
+        // Use per-conversation context so switching chats doesn't mix topics
+        let lastContext = convKey.flatMap { contextByConversation[$0] }
+        let response = await aiEngine.analyze(text: textWithContext, context: lastContext, styleFragment: styleFragment, conversationFragment: conversationFragment)
         let aiMs = Int(Date().timeIntervalSince(aiStart) * 1000)
         Log.write("🧠 AI responded in \(aiMs)ms")
 
@@ -244,7 +325,9 @@ final class InsightOrchestrator {
             // Keep last 50 entries in memory
             if responseHistory.count > 50 { responseHistory.removeFirst() }
             historyIndex = -1  // reset to latest
-            lastContext = response.advice
+            if let key = convKey {
+                contextByConversation[key] = response.advice
+            }
 
             // Persist to markdown archive
             if let storage = storageManager {
@@ -275,37 +358,32 @@ final class InsightOrchestrator {
     }
 
     /// Extract only the [主内容区] text, stripped of zone headers.
+    /// Scans line-by-line for robustness.
     private func extractMainContent(from text: String) -> String {
-        let sections = text.components(separatedBy: "\n\n")
+        let zoneHeaders: Set<String> = ["[左侧边栏]", "[主内容区]", "[右侧边栏]"]
+        let lines = text.components(separatedBy: "\n")
         var mainLines: [String] = []
         var inMainSection = false
 
-        for section in sections {
-            let lines = section.components(separatedBy: "\n")
-            if let first = lines.first {
-                if first.contains("[主内容区]") {
-                    inMainSection = true
-                    mainLines.append(contentsOf: lines.dropFirst())
-                    continue
-                } else if first.hasPrefix("[") && first.hasSuffix("]") {
-                    inMainSection = false
-                    continue
-                }
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if zoneHeaders.contains(trimmed) {
+                inMainSection = (trimmed == "[主内容区]")
+                continue
             }
             if inMainSection {
-                mainLines.append(contentsOf: lines)
+                mainLines.append(line)
             }
         }
 
-        // If no zone headers found, return original text
-        if mainLines.isEmpty {
-            return text.replacingOccurrences(of: "[当前应用:", with: "")
-                .replacingOccurrences(of: "[主内容区]", with: "")
-                .replacingOccurrences(of: "[左侧边栏]", with: "")
-                .replacingOccurrences(of: "[右侧边栏]", with: "")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
+        let result = mainLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        // Fallback: if no [主内容区] found, strip all zone headers
+        if result.isEmpty {
+            return lines.filter { line in
+                let t = line.trimmingCharacters(in: .whitespaces)
+                return !zoneHeaders.contains(t) && !t.hasPrefix("[当前应用:")
+            }.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
         }
-
-        return mainLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        return result
     }
 }

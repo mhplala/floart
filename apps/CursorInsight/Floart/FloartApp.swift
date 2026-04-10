@@ -103,9 +103,14 @@ struct FloartApp: App {
                 )
             }
 
-            let archiveDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-                .appendingPathComponent("Floart/archive")
+            let floartDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+                .appendingPathComponent("Floart")
+            let archiveDir = floartDir.appendingPathComponent("archive")
             orch.storageManager = StorageManager(archiveDirectory: archiveDir)
+            orch.styleProfileManager = StyleProfileManager(directory: floartDir)
+            orch.conversationHistoryManager = ConversationHistoryManager(
+                directory: floartDir.appendingPathComponent("conversations")
+            )
             orch.modelContext = ModelContext(container)
 
             orch.start()
@@ -221,9 +226,18 @@ struct FloartApp: App {
         }
 
         // Configure storage
-        let archiveDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("Floart/archive")
+        let floartDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("Floart")
+        let archiveDir = floartDir.appendingPathComponent("archive")
         orchestrator.storageManager = StorageManager(archiveDirectory: archiveDir)
+        if orchestrator.styleProfileManager == nil {
+            orchestrator.styleProfileManager = StyleProfileManager(directory: floartDir)
+        }
+        if orchestrator.conversationHistoryManager == nil {
+            orchestrator.conversationHistoryManager = ConversationHistoryManager(
+                directory: floartDir.appendingPathComponent("conversations")
+            )
+        }
 
         // Wire SwiftData model context
         orchestrator.modelContext = ModelContext(modelContainer)

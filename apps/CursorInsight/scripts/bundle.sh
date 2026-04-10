@@ -13,10 +13,13 @@ MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
 
 echo "Building $APP_NAME..."
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift build -c release \
-  --package-path "$PROJECT_DIR"
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+  /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild \
+  build -scheme "$APP_NAME" -destination 'platform=macOS' -configuration Release \
+  -derivedDataPath "$BUILD_DIR/DerivedData" \
+  2>&1 | tail -3
 
-BINARY="$PROJECT_DIR/.build/release/$APP_NAME"
+BINARY="$BUILD_DIR/DerivedData/Build/Products/Release/$APP_NAME"
 if [[ ! -f "$BINARY" ]]; then
   echo "Error: binary not found at $BINARY" >&2
   exit 1

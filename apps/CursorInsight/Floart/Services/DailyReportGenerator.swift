@@ -125,7 +125,7 @@ actor DailyReportGenerator {
         )
 
         do {
-            return try await provider.analyze(text: prompt, context: nil)
+            return try await provider.rawComplete(prompt: prompt)
         } catch {
             Log.write("❌ Cloud API error for report: \(error.localizedDescription)")
             return ""
