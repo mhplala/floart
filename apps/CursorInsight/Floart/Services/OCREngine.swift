@@ -269,18 +269,32 @@ enum OCREngine {
                 let cy = box.origin.y + box.height / 2
                 // Top of chat panel, right of sidebar
                 guard cy > 0.90 && cx > 0.30 && cx < 0.65 else { continue }
-                let text = block.text.trimmingCharacters(in: .whitespaces)
+                var text = block.text.trimmingCharacters(in: .whitespaces)
+
+                // OCR often merges title with status/signature:
+                // "蔡菲 国 | 不忘初心，招基础产品 目 Whom to Find T.."
+                // Split on | or ： and take first segment as the name
+                for sep in [" | ", " ｜ ", "丨"] {
+                    if let range = text.range(of: sep) {
+                        text = String(text[..<range.lowerBound]).trimmingCharacters(in: .whitespaces)
+                        break
+                    }
+                }
+                // Strip trailing OCR badge artifacts (国, 田, 園, 画, etc.)
+                text = text.replacingOccurrences(
+                    of: "\\s*[国國田園画聞冊]$", with: "", options: .regularExpression
+                )
+
                 guard text.count >= 2 && text.count <= 25 else { continue }
                 // Skip numbers, counters, timestamps, watermarks
                 if text.contains("/") || text.contains(">") { continue }
                 if text.allSatisfy({ $0.isNumber || $0 == ":" || $0 == "." || $0 == " " }) { continue }
-                if text.contains("4272") || text.contains("王金鑫 ") { continue }
+                if text.contains("4272") { continue }
                 // Skip common UI labels
-                if text.contains("消息") || text.contains("搜索") { continue }
+                if text.contains("消息") || text.contains("搜索") || text.contains("助手") { continue }
                 candidates.append((text: text, cx: cx, cy: cy))
             }
-            // Pick the candidate closest to top-left of chat panel
-            // (highest cy = most top, then leftmost cx, then shortest)
+            // Pick the candidate closest to top of chat panel (highest cy, then leftmost)
             return candidates
                 .sorted { ($0.cy, -$0.cx, -Double($0.text.count)) > ($1.cy, -$1.cx, -Double($1.text.count)) }
                 .first?.text
