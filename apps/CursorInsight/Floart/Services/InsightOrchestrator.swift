@@ -212,10 +212,13 @@ final class InsightOrchestrator {
                         }
                     }
 
-                    // Collect messages for conversation history
-                    if let chm = await self?.conversationHistoryManager {
-                        // Build conversation key from app name + chat title
-                        let chatTitle = zonedResult.chatTitle ?? "unknown"
+                    // Collect messages for conversation history (chat apps only)
+                    let chatApps: Set<String> = ["飞书", "微信", "WeChat", "Telegram", "Slack", "飞书会议"]
+                    if let chm = await self?.conversationHistoryManager, chatApps.contains(frontApp) {
+                        // Try AX API first (reliable), fallback to OCR title
+                        let chatTitle = await MainActor.run {
+                            AccessibilityHelper.extractChatTitle()
+                        } ?? zonedResult.chatTitle ?? "unknown"
                         let rawKey = "\(frontApp):\(chatTitle)"
                         let key = chm.resolveKey(rawKey)
 

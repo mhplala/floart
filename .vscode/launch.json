@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:Automemory}/apps/CursorInsight",
+            "name": "Debug Floart (apps/CursorInsight)",
+            "target": "Floart",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug Floart (apps/CursorInsight)"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:Automemory}/apps/CursorInsight",
+            "name": "Release Floart (apps/CursorInsight)",
+            "target": "Floart",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release Floart (apps/CursorInsight)"
+        }
+    ]
+}

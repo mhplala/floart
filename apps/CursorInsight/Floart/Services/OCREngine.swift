@@ -257,23 +257,33 @@ enum OCREngine {
             i += 1
         }
 
-        // Extract chat title from top region (0.88 < cy < 0.95, center x)
-        // Typically the first short text in this zone is the chat/group name
+        // Extract chat title from top of the chat panel.
+        // In Feishu/WeChat, the title is in the right panel header area:
+        //   cx > 0.35 (right of sidebar), cy > 0.90 (near top)
+        // Filter out: numbers/counters (303/351), timestamps, watermarks, UI buttons
         let chatTitle: String? = {
+            var candidates: [(text: String, cx: CGFloat, cy: CGFloat)] = []
             for block in blocks {
                 let box = block.boundingBox
                 let cx = box.origin.x + box.width / 2
                 let cy = box.origin.y + box.height / 2
-                // Top region, center-ish (not sidebar icons)
-                if cy > 0.88 && cy < 0.95 && cx > 0.25 && cx < 0.75 {
-                    let text = block.text.trimmingCharacters(in: .whitespaces)
-                    // Chat titles are typically 2-30 chars, not timestamps or icons
-                    if text.count >= 2 && text.count <= 30 {
-                        return text
-                    }
-                }
+                // Top of chat panel, right of sidebar
+                guard cy > 0.90 && cx > 0.30 && cx < 0.65 else { continue }
+                let text = block.text.trimmingCharacters(in: .whitespaces)
+                guard text.count >= 2 && text.count <= 25 else { continue }
+                // Skip numbers, counters, timestamps, watermarks
+                if text.contains("/") || text.contains(">") { continue }
+                if text.allSatisfy({ $0.isNumber || $0 == ":" || $0 == "." || $0 == " " }) { continue }
+                if text.contains("4272") || text.contains("王金鑫 ") { continue }
+                // Skip common UI labels
+                if text.contains("消息") || text.contains("搜索") { continue }
+                candidates.append((text: text, cx: cx, cy: cy))
             }
-            return nil
+            // Pick the candidate closest to top-left of chat panel
+            // (highest cy = most top, then leftmost cx, then shortest)
+            return candidates
+                .sorted { ($0.cy, -$0.cx, -Double($0.text.count)) > ($1.cy, -$1.cx, -Double($1.text.count)) }
+                .first?.text
         }()
 
         var parts: [String] = []
@@ -514,16 +524,29 @@ enum OCREngine {
         // Rebuild: tagged lines pass through, untagged lines must survive cleanText
         var seen = Set<String>()
         var result: [String] = []
+        // Watermark regex for tagged lines
+        let watermarkRegex = try? NSRegularExpression(pattern: "^[\\p{L}\\s]{1,20}\\s*\\d{3,5}[。.]?$")
+
         for line in lines {
             if line.hasPrefix("[我] ") || line.hasPrefix("[对方] ") {
-                // Tagged: always keep (deduplicate by tag+content to preserve both speakers)
+                // Tagged: keep but still filter watermarks and timestamps
                 let trimmedLine = line.trimmingCharacters(in: .whitespaces)
                 let content = String(line.drop(while: { $0 != " " }).dropFirst())
                     .trimmingCharacters(in: .whitespaces)
-                if content.count >= 2 && !seen.contains(trimmedLine) {
-                    seen.insert(trimmedLine)
-                    result.append(line)
+                if content.count < 2 { continue }
+                if seen.contains(trimmedLine) { continue }
+                // Filter watermarks (name + 3-5 digits)
+                if let regex = watermarkRegex {
+                    let range = NSRange(content.startIndex..., in: content)
+                    if regex.firstMatch(in: content, range: range) != nil { continue }
                 }
+                // Filter pure timestamps like "16:50", "4月7日"
+                if content.count <= 6 && content.contains(":") &&
+                   content.allSatisfy({ $0.isNumber || $0 == ":" }) { continue }
+                if content.count <= 5 && content.contains("月") && content.contains("日") { continue }
+
+                seen.insert(trimmedLine)
+                result.append(line)
             } else {
                 // Untagged: only keep if it survived cleanText
                 let trimmed = line.trimmingCharacters(in: .whitespaces)

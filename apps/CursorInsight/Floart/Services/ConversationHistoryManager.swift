@@ -80,11 +80,39 @@ final class ConversationHistoryManager: @unchecked Sendable {
 
     // MARK: - Message Storage
 
+    /// Patterns that indicate Floart's own AI output or UI noise — not real chat messages.
+    private static let noisePatterns: [String] = [
+        "关键人物观点", "回复草稿", "learning", "English translation",
+        "客观提炼", "核心结论", "行动项", "可以问：", "笔记：", "改进：",
+        "Advice:", "✅", "📥", "📤", "🧠", "📸", "📝", "📚",
+        "Analysis starting", "Main content", "Combined text",
+        "Gemini", "Ollama", "thinkingBudget",
+    ]
+
+    /// Check if a message is actually a timestamp or pure noise.
+    private static func isNoise(_ content: String) -> Bool {
+        let trimmed = content.trimmingCharacters(in: .whitespaces)
+        // Pure timestamp: "16:49", "17:05", "14:37"
+        if trimmed.count <= 5 && trimmed.contains(":") &&
+           trimmed.allSatisfy({ $0.isNumber || $0 == ":" }) { return true }
+        // Floart AI output leaked back via OCR
+        for pattern in noisePatterns {
+            if trimmed.contains(pattern) { return true }
+        }
+        // Too short to be meaningful
+        if trimmed.count < 2 { return true }
+        return false
+    }
+
     /// Add new messages for a conversation. Returns count of non-duplicate messages added.
     @discardableResult
     func addMessages(_ messages: [String], forConversation key: String) -> Int {
-        // Only keep [我]/[对方] tagged lines
-        let tagged = messages.filter { $0.hasPrefix("[我] ") || $0.hasPrefix("[对方] ") }
+        // Only keep [我]/[对方] tagged lines, filter noise
+        let tagged = messages.filter { line in
+            guard line.hasPrefix("[我] ") || line.hasPrefix("[对方] ") else { return false }
+            let content = String(line.drop(while: { $0 != " " }).dropFirst())
+            return !Self.isNoise(content)
+        }
         guard !tagged.isEmpty else { return 0 }
 
         lock.lock()

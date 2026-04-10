@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild build -scheme Floart -destination 'platform=macOS' -configuration Release)",
+      "Bash(ls ~/Library/Developer/Xcode/DerivedData/CursorInsight-*/Build/Products/Release/Floart)",
+      "Bash(bash /Users/stev/Dev/Automemory/apps/CursorInsight/scripts/bundle.sh)",
+      "Bash(curl -s \"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=test\" -H \"Content-Type: application/json\" -d '{\"contents\":[{\"parts\":[{\"text\":\"hi\"}]}],\"generationConfig\":{\"thinkingConfig\":{\"thinkingBudget\":0}}}')",
+      "Bash(rm -rf build/DerivedData)",
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild build -scheme Floart -destination 'platform=macOS' -configuration Release -derivedDataPath build/DerivedData)",
+      "Bash(cp -R /Users/stev/Dev/Automemory/apps/CursorInsight/build/Floart.app /Applications/Floart.app)",
+      "Bash(open /Applications/Floart.app)",
+      "Bash(rm -rf /Applications/Floart.app)",
+      "Bash(pkill -9 -f Floart)",
+      "Bash(cp -R build/Floart.app /Applications/Floart.app)",
+      "Bash(screencapture -x -l 87 /tmp/floart_prompt_test.png)",
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test -scheme Floart -destination 'platform=macOS' -only-testing FloartTests/PromptTest)"
+    ]
+  }
+}
