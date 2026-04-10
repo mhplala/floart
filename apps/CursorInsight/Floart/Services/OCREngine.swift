@@ -272,17 +272,21 @@ enum OCREngine {
                 var text = block.text.trimmingCharacters(in: .whitespaces)
 
                 // OCR often merges title with status/signature:
-                // "蔡菲 国 | 不忘初心，招基础产品 目 Whom to Find T.."
-                // Split on | or ： and take first segment as the name
-                for sep in [" | ", " ｜ ", "丨"] {
+                // "蔡菲 国 | 不忘初心..." or "沈健国|《反对自由主义》"
+                // Split on | (with or without spaces) and take first segment
+                for sep in [" | ", " ｜ ", "丨", "|", "｜"] {
                     if let range = text.range(of: sep) {
                         text = String(text[..<range.lowerBound]).trimmingCharacters(in: .whitespaces)
                         break
                     }
                 }
                 // Strip trailing OCR badge artifacts (国, 田, 園, 画, etc.)
+                // and status labels (C休假, C出差, ◎, 冊, etc.)
                 text = text.replacingOccurrences(
-                    of: "\\s*[国國田園画聞冊]$", with: "", options: .regularExpression
+                    of: "\\s*[国國田園画聞冊◎]$", with: "", options: .regularExpression
+                )
+                text = text.replacingOccurrences(
+                    of: "\\s+[CcＣ][休出][假差]$", with: "", options: .regularExpression
                 )
 
                 guard text.count >= 2 && text.count <= 25 else { continue }
