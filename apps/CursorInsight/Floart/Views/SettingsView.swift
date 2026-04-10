@@ -16,6 +16,9 @@ struct SettingsView: View {
     @AppStorage("cloudModel") private var cloudModel: String = "claude-sonnet-4-6-20250514"
     @AppStorage("cloudEndpoint") private var cloudEndpoint: String = "https://api.anthropic.com/v1/messages"
 
+    // OCR
+    @AppStorage("watermarkKeywords") private var watermarkKeywords: String = ""
+
     // Storage
     @AppStorage("retentionDays") private var retentionDays: Double = 30
 
@@ -71,6 +74,14 @@ struct SettingsView: View {
                     }
                 }
                 Text("Lower = more responsive, higher CPU usage")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Watermark Filter") {
+                TextField("Keywords (comma separated)", text: $watermarkKeywords)
+                    .textFieldStyle(.roundedBorder)
+                Text("Auto-detects repeated watermarks (e.g. \"Name 1234\"). Add extra keywords here for precise filtering.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

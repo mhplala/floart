@@ -307,7 +307,7 @@ struct InsightCard: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text(record.captureMode == "window" ? "Window" : "Area")
+                Text(record.appName.isEmpty ? record.aiProvider : record.appName)
                     .font(.system(size: 9))
                     .foregroundStyle(.tertiary)
                     .padding(.horizontal, 6)

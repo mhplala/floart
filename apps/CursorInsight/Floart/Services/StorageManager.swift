@@ -63,6 +63,7 @@ final class StorageManager: @unchecked Sendable {
         mouseX: Double, mouseY: Double,
         captureMode: CaptureMode,
         provider: String, model: String,
+        appName: String = "",
         context: ModelContext
     ) {
         let record = InsightRecord(
@@ -75,7 +76,8 @@ final class StorageManager: @unchecked Sendable {
             reflection: "",
             suggestion: "",
             aiProvider: provider,
-            aiModel: model
+            aiModel: model,
+            appName: appName
         )
         context.insert(record)
     }

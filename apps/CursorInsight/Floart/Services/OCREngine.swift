@@ -162,7 +162,63 @@ enum OCREngine {
             return true
         }
 
-        return deduped.joined(separator: "\n")
+        // Remove watermarks
+        let noWatermark = removeWatermarks(from: deduped)
+
+        return noWatermark.joined(separator: "\n")
+    }
+
+    // MARK: - Watermark Detection
+
+    /// Remove watermark lines using two strategies:
+    /// 1. Auto-detect: short lines appearing 3+ times (common in screen watermarks)
+    /// 2. Pattern match: "name + 3-5 digit number" format (Feishu/Lark watermark)
+    /// 3. User-configured watermark keywords from Settings
+    private static func removeWatermarks(from lines: [String]) -> [String] {
+        // Count occurrences of short lines (watermarks are short + repeated)
+        var lineCounts: [String: Int] = [:]
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.count < 25 { // watermarks are typically short
+                lineCounts[trimmed, default: 0] += 1
+            }
+        }
+
+        // Lines that appear 3+ times are watermarks
+        let autoWatermarks = Set(lineCounts.filter { $0.value >= 3 }.keys)
+
+        // Regex for "name + space + 3-5 digit number" pattern
+        // Matches: "王金鑫 4272", "Steve Wang 4272", "张三 1234"
+        let watermarkRegex = try? NSRegularExpression(
+            pattern: "^[\\p{L}\\s]{2,20}\\s+\\d{3,5}$"
+        )
+
+        // User-configured watermark keywords
+        let userWatermarkText = UserDefaults.standard.string(forKey: "watermarkKeywords") ?? ""
+        let userKeywords = userWatermarkText
+            .components(separatedBy: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+
+        return lines.filter { line in
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+
+            // Auto-detected watermark (repeated 3+ times)
+            if autoWatermarks.contains(trimmed) { return false }
+
+            // Name + number pattern
+            if let regex = watermarkRegex {
+                let range = NSRange(trimmed.startIndex..., in: trimmed)
+                if regex.firstMatch(in: trimmed, range: range) != nil { return false }
+            }
+
+            // User-configured keywords
+            for keyword in userKeywords {
+                if trimmed.contains(keyword) { return false }
+            }
+
+            return true
+        }
     }
 
     /// Clean zoned text — apply cleanText to each zone section, preserve zone headers.

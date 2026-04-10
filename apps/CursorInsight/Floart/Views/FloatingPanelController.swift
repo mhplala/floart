@@ -44,11 +44,12 @@ final class FloatingPanelController {
 
         panel.contentView = hostingView
 
-        // Position in top-right corner
+        // Position in top-right corner, clamped to visible area
         if let screen = NSScreen.main {
-            let x = screen.visibleFrame.maxX - fittingSize.width - 20
-            let y = screen.visibleFrame.maxY - fittingSize.height - 20
-            panel.setFrameOrigin(NSPoint(x: x, y: y))
+            let vf = screen.visibleFrame
+            let x = min(vf.maxX - fittingSize.width - 16, vf.maxX - 16)
+            let y = max(vf.maxY - fittingSize.height - 8, vf.minY)
+            panel.setFrameOrigin(NSPoint(x: max(x, vf.minX), y: y))
         }
 
         panel.orderFront(nil)
@@ -91,11 +92,21 @@ final class FloatingPanelController {
         let clampedHeight = min(size.height, maxHeight * 0.8)
         let newSize = NSSize(width: size.width, height: clampedHeight)
 
-        // Keep top-left corner fixed (resize from bottom)
+        // Keep top-right corner fixed (resize from bottom)
         var frame = panel.frame
         let topY = frame.origin.y + frame.size.height
         frame.size = newSize
         frame.origin.y = topY - newSize.height
+
+        // Clamp to visible screen
+        if let vf = NSScreen.main?.visibleFrame {
+            frame.origin.x = min(frame.origin.x, vf.maxX - frame.width)
+            frame.origin.x = max(frame.origin.x, vf.minX)
+            frame.origin.y = max(frame.origin.y, vf.minY)
+            if frame.origin.y + frame.height > vf.maxY {
+                frame.origin.y = vf.maxY - frame.height
+            }
+        }
         panel.setFrame(frame, display: true, animate: true)
     }
 }

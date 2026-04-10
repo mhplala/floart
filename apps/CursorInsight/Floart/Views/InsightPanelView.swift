@@ -32,7 +32,7 @@ struct InsightPanelView: View {
             footer
         }
         .frame(width: 300)
-        .glassEffect(.regular, in: .rect(cornerRadius: 16, style: .continuous))
+        .modifier(GlassOrMaterial(cornerRadius: 16))
     }
 
     // MARK: - Header

@@ -19,7 +19,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    static let reopenNotification = Notification.Name("FloartReopenApp")
+
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag {
+            NotificationCenter.default.post(name: AppDelegate.reopenNotification, object: nil)
+        }
         return true
     }
 }
@@ -164,10 +169,16 @@ struct FloartApp: App {
 
         Window("Floart", id: "main") {
             MainWindowView()
+                .onReceive(NotificationCenter.default.publisher(for: AppDelegate.reopenNotification)) { _ in
+                    // Dock icon clicked with no visible windows
+                    openWindow(id: "main")
+                    NSApp.activate(ignoringOtherApps: true)
+                }
         }
         .modelContainer(modelContainer)
         .defaultSize(width: 900, height: 600)
-        .defaultLaunchBehavior(.suppressed)
+        .defaultPosition(.center)
+        .suppressLaunchIfAvailable()
 
         Settings {
             SettingsView()

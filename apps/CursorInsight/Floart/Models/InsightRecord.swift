@@ -15,13 +15,15 @@ final class InsightRecord {
     var suggestion: String
     var aiProvider: String
     var aiModel: String
+    var appName: String
 
     init(
         timestamp: Date, mouseX: Double, mouseY: Double,
         captureMode: String, rawOCRText: String,
         summary: String, observation: String,
         reflection: String, suggestion: String,
-        aiProvider: String, aiModel: String
+        aiProvider: String, aiModel: String,
+        appName: String = ""
     ) {
         self.timestamp = timestamp
         self.mouseX = mouseX
@@ -34,5 +36,6 @@ final class InsightRecord {
         self.suggestion = suggestion
         self.aiProvider = aiProvider
         self.aiModel = aiModel
+        self.appName = appName
     }
 }

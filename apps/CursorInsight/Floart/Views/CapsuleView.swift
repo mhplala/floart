@@ -15,7 +15,7 @@ struct CapsuleView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .glassEffect(.regular.interactive(), in: .capsule)
+        .modifier(GlassOrMaterialCapsule())
         .onTapGesture { onTap() }
     }
 }

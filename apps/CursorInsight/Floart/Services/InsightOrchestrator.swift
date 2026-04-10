@@ -261,6 +261,7 @@ final class InsightOrchestrator {
                         captureMode: captureMode,
                         provider: providerName,
                         model: modelName,
+                        appName: appName,
                         context: ctx
                     )
                 }
