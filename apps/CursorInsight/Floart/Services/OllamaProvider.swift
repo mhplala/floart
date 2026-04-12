@@ -8,31 +8,49 @@ struct OllamaProvider: AIProvider {
     var providerName: String { "ollama" }
     var modelName: String { model }
 
-    func analyze(text: String, context: String?, styleFragment: String?, conversationFragment: String?) async throws -> String {
+    func analyze(
+        text: String,
+        context: String?,
+        styleFragment: String?,
+        conversationFragment: String?,
+        sceneType: SceneType,
+        inputHint: String?
+    ) async throws -> String {
         let url = URL(string: "\(baseURL)/api/generate")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let systemPrompt = """
-        用户在看屏幕上的文字。你严格按以下格式输出，不要加任何标题：
+        var systemPrompt = """
+        用户在看屏幕上的文字。当前场景已由系统判定为：\(sceneType.label)。
 
-        （直接写2-3句话总结要点，不要写"总结"二字）
+        严格按以下格式输出，不要加任何标题：
+
+        （第一段：2-3 句话总结要点，不要写"总结"二字）
 
         （空一行，写一句 learning：一个深刻洞察、反直觉的规律、或容易被忽略的关键细节。没有就不写这行）
 
-        （空一行，根据场景写一条行动项，只写对应的一行，以冒号开头）
-        如果是聊天，写：回复草稿：xxx
-        如果是会议，写：可以问：xxx
-        如果是文档/网页，写：笔记：xxx
-        如果是代码，写：改进：xxx
+        （空一行，然后输出一行以 |ACTION| 开头的动作，按下面的"动作指示"撰写）
 
-        关于聊天回复草稿：[我]是用户发的，[对方]是对方发的。模仿[我]的风格（长度、语气、语言），接着[对方]最后说的往下聊，像朋友发消息。
+        动作指示（写在 |ACTION| 后面，不要重复这段话）：
+        \(sceneType.actionInstruction)
 
-        不要写"总结""要点""行动项"等标题。不要翻译。不要markdown。300字以内。
+        严格规则：
+        - |ACTION| 后面只写能直接使用的纯文本。不加任何前缀、标签、引号、括号说明或"好的"之类的开场白。
+        - 不要写"总结""要点""行动项"等标题。
+        - 不要翻译。
+        - 不要 markdown 符号。
+        - 总长度 300 字以内。
         """
-        + (styleFragment.map { "\n\n" + $0 } ?? "")
-        + (conversationFragment.map { "\n\n" + $0 } ?? "")
+        if let hint = inputHint, !hint.isEmpty {
+            systemPrompt += "\n\n当前输入框提示：\(hint)"
+        }
+        if let style = styleFragment {
+            systemPrompt += "\n\n" + style
+        }
+        if let conv = conversationFragment {
+            systemPrompt += "\n\n" + conv
+        }
 
         var prompt = "屏幕内容：\n\(text)"
         if let context {

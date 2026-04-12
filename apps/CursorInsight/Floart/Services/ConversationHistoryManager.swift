@@ -84,6 +84,7 @@ final class ConversationHistoryManager: @unchecked Sendable {
     private static let noisePatterns: [String] = [
         "关键人物观点", "回复草稿", "learning", "English translation",
         "客观提炼", "核心结论", "行动项", "可以问：", "笔记：", "改进：",
+        "|ACTION|",  // new scene-typed marker
         "Advice:", "✅", "📥", "📤", "🧠", "📸", "📝", "📚",
         "Analysis starting", "Main content", "Combined text",
         "Gemini", "Ollama", "thinkingBudget",

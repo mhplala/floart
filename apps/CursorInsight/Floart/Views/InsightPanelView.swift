@@ -111,12 +111,16 @@ struct InsightPanelView: View {
         .animation(.smooth, value: response.advice)
     }
 
-    /// The analysis portion (before the action marker)
+    /// The analysis portion (before the action marker). Recognizes both the new
+    /// `|ACTION|` marker and the legacy Chinese-prefix markers.
     private var analysisText: String {
-        let markers = ["回复草稿：", "可以问：", "笔记：", "改进：",
-                       "回复草稿:", "可以问:", "笔记:", "改进:"]
+        if let range = response.advice.range(of: "|ACTION|") {
+            return String(response.advice[..<range.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        let legacy = ["回复草稿：", "可以问：", "笔记：", "改进：",
+                      "回复草稿:", "可以问:", "笔记:", "改进:"]
         var earliest: String.Index?
-        for marker in markers {
+        for marker in legacy {
             if let range = response.advice.range(of: marker) {
                 if earliest == nil || range.lowerBound < earliest! {
                     earliest = range.lowerBound

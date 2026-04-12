@@ -4,19 +4,29 @@ import Foundation
 protocol AIProvider: Sendable {
     var providerName: String { get }
     var modelName: String { get }
-    func analyze(text: String, context: String?, styleFragment: String?, conversationFragment: String?) async throws -> String
+    func analyze(
+        text: String,
+        context: String?,
+        styleFragment: String?,
+        conversationFragment: String?,
+        sceneType: SceneType,
+        inputHint: String?
+    ) async throws -> String
     /// Raw completion without any system prompt — for internal distillation tasks
     /// (style profile extraction, conversation summarization, daily reports).
     func rawComplete(prompt: String) async throws -> String
 }
 
 extension AIProvider {
-    /// Convenience: call without fragments.
+    /// Convenience: default scene = .note, no input hint.
     func analyze(text: String, context: String?) async throws -> String {
-        try await analyze(text: text, context: context, styleFragment: nil, conversationFragment: nil)
+        try await analyze(text: text, context: context, styleFragment: nil, conversationFragment: nil, sceneType: .note, inputHint: nil)
     }
     func analyze(text: String, context: String?, styleFragment: String?) async throws -> String {
-        try await analyze(text: text, context: context, styleFragment: styleFragment, conversationFragment: nil)
+        try await analyze(text: text, context: context, styleFragment: styleFragment, conversationFragment: nil, sceneType: .note, inputHint: nil)
+    }
+    func analyze(text: String, context: String?, styleFragment: String?, conversationFragment: String?) async throws -> String {
+        try await analyze(text: text, context: context, styleFragment: styleFragment, conversationFragment: conversationFragment, sceneType: .note, inputHint: nil)
     }
 }
 
@@ -44,13 +54,20 @@ final class AIEngine: @unchecked Sendable {
     var fallbackProvider: (any AIProvider)?
     private let timeoutSeconds: TimeInterval = 60
 
-    func analyze(text: String, context: String?, styleFragment: String? = nil, conversationFragment: String? = nil) async -> AIResponse {
+    func analyze(
+        text: String,
+        context: String?,
+        styleFragment: String? = nil,
+        conversationFragment: String? = nil,
+        sceneType: SceneType = .note,
+        inputHint: String? = nil
+    ) async -> AIResponse {
         if let primary = primaryProvider {
             do {
                 let style = styleFragment
                 let conv = conversationFragment
                 let raw = try await withTimeout(seconds: timeoutSeconds) {
-                    try await primary.analyze(text: text, context: context, styleFragment: style, conversationFragment: conv)
+                    try await primary.analyze(text: text, context: context, styleFragment: style, conversationFragment: conv, sceneType: sceneType, inputHint: inputHint)
                 }
                 return AIResponseParser.parse(raw, ocrText: text)
             } catch {
@@ -61,7 +78,7 @@ final class AIEngine: @unchecked Sendable {
                         let style = styleFragment
                         let conv = conversationFragment
                         let raw = try await withTimeout(seconds: timeoutSeconds) {
-                            try await fallback.analyze(text: text, context: context, styleFragment: style, conversationFragment: conv)
+                            try await fallback.analyze(text: text, context: context, styleFragment: style, conversationFragment: conv, sceneType: sceneType, inputHint: inputHint)
                         }
                         return AIResponseParser.parse(raw, ocrText: text)
                     } catch {

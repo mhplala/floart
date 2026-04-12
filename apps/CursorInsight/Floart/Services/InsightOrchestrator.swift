@@ -58,12 +58,48 @@ final class InsightOrchestrator {
     var modelContext: ModelContext?
     var styleProfileManager: StyleProfileManager?
     var conversationHistoryManager: ConversationHistoryManager?
+    /// Per-bucket editable context store. The single source of truth for
+    /// "what Floart said last for this bucket" and "what the user wants
+    /// Floart to remember for this bucket". Wired up by FloartApp on launch.
+    var contextStore: ContextStore?
+    /// Latest chat-partner key detected by the OCR loop, format "<localizedAppName>:<chatTitle>".
+    /// Only set when in a chat app; stays stale after switching apps, so any consumer must
+    /// verify it belongs to the current app before trusting it (see `contextKey` computation).
     private var currentConversationKey: String?
 
     private var captureTimer: Timer?
     private var styleRefreshTimer: Timer?
-    /// Per-conversation last AI context, keyed by conversation key.
-    private var contextByConversation: [String: String] = [:]
+    private var focusPollTimer: Timer?
+    /// Dedup key for the last focused input we reacted to. Format:
+    /// "<bundleId>|<role>|<x>,<y>". When this changes we consider it a new focus event.
+    private var lastFocusedSignature: String?
+    /// Inline bubble controller — shows the latest action above the focused input.
+    let bubbleController = BubbleController()
+
+    /// Master switch — when false, the focus poller still runs (for dedup
+    /// state) but the bubble is never shown or filled. Bound to UserDefaults
+    /// via FloartApp → SettingsView. Turning this off closes any currently
+    /// visible bubble immediately.
+    var enableBubble: Bool = true {
+        didSet {
+            if !enableBubble {
+                bubbleController.close()
+                lastFocusedSignature = nil
+            }
+        }
+    }
+
+    // MARK: - Bubble cooldown (Option C: content-or-60s)
+    /// The action text that was most recently written into a focused input.
+    /// While this equals the action we'd otherwise show, the bubble stays
+    /// suppressed — we don't want to pop the same suggestion again right
+    /// after the user already accepted it.
+    private var lastFilledAction: String?
+    /// When `lastFilledAction` was set. Cooldown auto-expires after 60 s so
+    /// the bubble can resume even if no new analysis has arrived yet.
+    private var lastFilledAt: Date?
+    private static let fillCooldown: TimeInterval = 60
+    // (context storage lives in `contextStore` — see above)
     private var lastMouseLocation: NSPoint = .zero
     private var lastImageHash: UInt64 = 0
     private var lastFrontAppName: String = ""
@@ -89,6 +125,14 @@ final class InsightOrchestrator {
             Task { @MainActor in await self?.refreshStyleProfile() }
         }
 
+        // Focus poller — detect when the user focuses a new text input and
+        // pop the inline bubble with the latest action.
+        focusPollTimer = Timer.scheduledTimer(
+            withTimeInterval: 0.5, repeats: true
+        ) { [weak self] _ in
+            Task { @MainActor in self?.pollFocusedInput() }
+        }
+
         Log.write("🚀 Pipeline started — capture: \(self.captureInterval)s, mode: \(self.captureMode.rawValue), size: \(self.captureSize)")
         captureAndOCR()
     }
@@ -98,6 +142,10 @@ final class InsightOrchestrator {
         captureTimer = nil
         styleRefreshTimer?.invalidate()
         styleRefreshTimer = nil
+        focusPollTimer?.invalidate()
+        focusPollTimer = nil
+        bubbleController.close()
+        lastFocusedSignature = nil
         isRunning = false
         statusMessage = "Paused"
     }
@@ -269,6 +317,145 @@ final class InsightOrchestrator {
         newMessagesSinceLastRefresh = 0
     }
 
+    // MARK: - Focus polling
+
+    /// Called every 0.5s while the pipeline is running.
+    ///
+    /// Responsibilities:
+    /// 1. Dismiss the existing bubble when the frontmost app is no longer the
+    ///    one that owns the bubble — context must not follow the user into a
+    ///    different app.
+    /// 2. When a new text input gains focus (dedup'd by position), show the
+    ///    bubble with the latest cached action — unless the bubble feature
+    ///    is disabled or the action is in its post-fill cooldown window.
+    private func pollFocusedInput() {
+        guard enableBubble else { return }
+
+        let frontBundleId = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+
+        // (1) App-switch dismissal: if the bubble is showing but the current
+        //     frontmost app isn't the owner, close it immediately. Also clear
+        //     the dedup signature so re-focusing in the original app works.
+        if bubbleController.isShowing,
+           let owner = bubbleController.ownerBundleId,
+           frontBundleId != owner {
+            Log.write("🫧 App switched away from \(owner) → closing bubble")
+            bubbleController.close()
+            lastFocusedSignature = nil
+        }
+
+        // (2) New-focus detection + bubble show.
+        guard let input = AccessibilityHelper.detectFocusedInput(),
+              let frame = input.frame else {
+            return
+        }
+
+        // Dedup: quantize position to 10px so 1px jitter doesn't re-trigger.
+        let roundedX = Int(frame.origin.x / 10) * 10
+        let roundedY = Int(frame.origin.y / 10) * 10
+        let signature = "\(input.bundleId ?? input.appName)|\(input.role)|\(roundedX),\(roundedY)"
+
+        guard signature != lastFocusedSignature else { return }
+        lastFocusedSignature = signature
+
+        // Only show an action that was actually generated for the CURRENT
+        // app/chat. Without this gating, switching from App A to App B and
+        // focusing an input would pop a bubble with App A's stale action.
+        let sceneType = SceneClassifier.classify(bundleId: input.bundleId, focusedInput: input)
+        let chatTitle = sceneType == .dmChat ? AccessibilityHelper.extractChatTitle() : nil
+        let contextKey = contextKey(
+            sceneType: sceneType,
+            appName: input.appName,
+            bundleId: input.bundleId
+        )
+
+        guard let bucket = contextStore?.read(
+            appName: input.appName,
+            bundleId: input.bundleId,
+            scene: sceneType,
+            chatTitle: chatTitle
+        ),
+        let advice = bucket.lastAdvice,
+        let action = AIResponse(advice: advice, timestamp: .now, rawText: "").actionContent,
+        !action.isEmpty else {
+            Log.write("🫧 Focus changed (\(input.role) in \(input.appName)) but no cached action for \(contextKey)")
+            return
+        }
+
+        // Cooldown: if the would-be action matches the one we just filled
+        // and less than 60s has passed, stay quiet. A new analysis will
+        // produce a different action and naturally break out.
+        if let lastAction = lastFilledAction,
+           let lastAt = lastFilledAt,
+           lastAction == action,
+           Date().timeIntervalSince(lastAt) < Self.fillCooldown {
+            return
+        }
+
+        Log.write("🫧 Showing bubble — app: \(input.appName), role: \(input.role), context: \(contextKey), axFrame: \(frame)")
+        bubbleController.show(
+            action: action,
+            near: frame,
+            ownerBundleId: input.bundleId,
+            onFill: { [weak self] in
+                self?.handleBubbleFill()
+            }
+        )
+    }
+
+    /// Compute the scene-aware context bucket for the current moment.
+    ///
+    /// For chat scenes we prefer a **fresh** chat title read directly from
+    /// the window via `AccessibilityHelper.extractChatTitle()` — this is
+    /// fast (~50ms) and works at both analyze time and poll time, so the
+    /// analyzer and the focus poller always produce the same key. The stale
+    /// `currentConversationKey` (set only after an OCR loop catches the chat)
+    /// is only used as a fallback if AX title extraction fails.
+    private func contextKey(sceneType: SceneType, appName: String, bundleId: String?) -> String {
+        if sceneType == .dmChat {
+            if let title = AccessibilityHelper.extractChatTitle(), !title.isEmpty {
+                return "chat:\(appName):\(title)"
+            }
+            if let stale = currentConversationKey,
+               stale.hasPrefix("\(appName):") {
+                return "chat:\(stale)"
+            }
+        }
+        return "app:\(bundleId ?? appName)"
+    }
+
+    /// Fill the cached action for the currently-focused input.
+    /// Re-detects the focused input at click time so the fill always targets
+    /// what the user is looking at (not a stale cached element).
+    private func handleBubbleFill() {
+        guard let input = AccessibilityHelper.detectFocusedInput() else {
+            Log.write("🫧 Fill clicked but no focused input")
+            return
+        }
+        let sceneType = SceneClassifier.classify(bundleId: input.bundleId, focusedInput: input)
+        let chatTitle = sceneType == .dmChat ? AccessibilityHelper.extractChatTitle() : nil
+        let key = contextKey(sceneType: sceneType, appName: input.appName, bundleId: input.bundleId)
+        guard let bucket = contextStore?.read(
+            appName: input.appName,
+            bundleId: input.bundleId,
+            scene: sceneType,
+            chatTitle: chatTitle
+        ),
+        let advice = bucket.lastAdvice,
+        let action = AIResponse(advice: advice, timestamp: .now, rawText: "").actionContent,
+        !action.isEmpty else {
+            Log.write("🫧 Fill clicked but no action cached for \(key)")
+            return
+        }
+        let strategy = InputFiller.appendToFocusedInput(action)
+        Log.write("🫧 Fill result: \(strategy?.rawValue ?? "failed")")
+        if strategy != nil {
+            // Engage cooldown — don't re-show this exact action again for 60s.
+            lastFilledAction = action
+            lastFilledAt = Date()
+        }
+    }
+
     private func analyzeBuffer() async {
         guard !isAnalyzing else {
             Log.write("🧠 Analysis skipped — already running")
@@ -295,23 +482,77 @@ final class InsightOrchestrator {
         // Only send main content area to AI — sidebars contain unrelated chat previews
         let appName = entries.last?.appName ?? lastFrontAppName
         let textForAI = mainContent.isEmpty ? combinedText : mainContent
+
+        // Classify the scene from frontmost app + focused input.
+        // This determines the kind of |ACTION| the LLM will produce.
+        let frontApp = NSWorkspace.shared.frontmostApplication
+        let bundleId = frontApp?.bundleIdentifier
+        let focusedInput = AccessibilityHelper.detectFocusedInput()
+        let sceneType = SceneClassifier.classify(bundleId: bundleId, focusedInput: focusedInput)
+        let inputHint = focusedInput?.hintText
+
+        // Compute a scene-aware context bucket, freshly for this analysis.
+        // See `contextKey(...)` — same rule is used by the focus poller so the
+        // bubble only shows actions generated for the CURRENT app/chat.
+        let contextKey = self.contextKey(sceneType: sceneType, appName: appName, bundleId: bundleId)
+        let isCurrentAppChatKey = currentConversationKey?.hasPrefix("\(appName):") ?? false
+        // Fresh chat title for file-based context storage (must match whatever
+        // the focus poller reads so the files land under the same path).
+        let chatTitleForStorage = sceneType == .dmChat ? AccessibilityHelper.extractChatTitle() : nil
+
         let textWithContext = "[当前应用: \(appName)]\n\n\(textForAI)"
 
-        Log.write("🧠 Analysis starting — app: \(appName), \(entries.count) entries, \(textForAI.count) chars (full: \(combinedText.count))")
+        Log.write("🧠 Analysis starting — app: \(appName), bundle: \(bundleId ?? "?"), scene: \(sceneType.label), focusedInput: \(focusedInput?.role ?? "none"), hint: \(inputHint ?? "none"), contextKey: \(contextKey)")
+        Log.write("🧠 \(entries.count) entries, \(textForAI.count) chars (full: \(combinedText.count))")
         Log.write("🧠 Main content preview: \(String(textForAI.prefix(300)))")
 
         statusMessage = "Analyzing..."
         let aiStart = Date()
         let styleFragment = styleProfileManager?.promptFragment()
-        let convKey = currentConversationKey
+        // Conversation-history fragment is only meaningful for the CURRENT chat.
+        // Stale keys from other apps must not be used.
         let conversationFragment: String? = {
-            guard let key = convKey,
+            guard sceneType == .dmChat,
+                  let key = currentConversationKey,
+                  isCurrentAppChatKey,
                   let chm = conversationHistoryManager else { return nil }
             return chm.promptFragment(forConversation: key)
         }()
-        // Use per-conversation context so switching chats doesn't mix topics
-        let lastContext = convKey.flatMap { contextByConversation[$0] }
-        let response = await aiEngine.analyze(text: textWithContext, context: lastContext, styleFragment: styleFragment, conversationFragment: conversationFragment)
+
+        // Read the bucket from the editable context store — this gives us
+        // both the user-curated Notes section (injected into the prompt)
+        // and the previous advice (fed back as lastContext so the LLM
+        // doesn't repeat itself).
+        let bucket = contextStore?.read(
+            appName: appName,
+            bundleId: bundleId,
+            scene: sceneType,
+            chatTitle: chatTitleForStorage
+        )
+        let lastContext = bucket?.lastAdvice
+        let notesFragment: String? = {
+            guard let notes = bucket?.notes, !notes.isEmpty else { return nil }
+            return "关于这个场景用户的自定义备注（请参考）：\n\(notes)"
+        }()
+        // Fold the notes into the existing style fragment slot — we don't
+        // have a dedicated param for it, and styleFragment is concatenated
+        // into the system prompt as-is, so piggybacking is safe.
+        let combinedStyleFragment: String? = {
+            switch (styleFragment, notesFragment) {
+            case (nil, nil):       return nil
+            case (let s?, nil):    return s
+            case (nil, let n?):    return n
+            case (let s?, let n?): return s + "\n\n" + n
+            }
+        }()
+        let response = await aiEngine.analyze(
+            text: textWithContext,
+            context: lastContext,
+            styleFragment: combinedStyleFragment,
+            conversationFragment: conversationFragment,
+            sceneType: sceneType,
+            inputHint: inputHint
+        )
         let aiMs = Int(Date().timeIntervalSince(aiStart) * 1000)
         Log.write("🧠 AI responded in \(aiMs)ms")
 
@@ -328,8 +569,24 @@ final class InsightOrchestrator {
             // Keep last 50 entries in memory
             if responseHistory.count > 50 { responseHistory.removeFirst() }
             historyIndex = -1  // reset to latest
-            if let key = convKey {
-                contextByConversation[key] = response.advice
+            // Persist to the file-based context store — creates the bucket
+            // file on first write and prepends to its History section.
+            contextStore?.append(
+                appName: appName,
+                bundleId: bundleId,
+                scene: sceneType,
+                chatTitle: chatTitleForStorage,
+                advice: response.advice,
+                contextKey: contextKey
+            )
+
+            // If the inline bubble is currently showing, update its content
+            // in place (don't re-trigger positioning or the auto-hide timer).
+            if bubbleController.isShowing,
+               let newAction = archiveResponse.actionContent, !newAction.isEmpty {
+                bubbleController.updateAction(newAction, onFill: { [weak self] in
+                    self?.handleBubbleFill()
+                })
             }
 
             // Persist to markdown archive

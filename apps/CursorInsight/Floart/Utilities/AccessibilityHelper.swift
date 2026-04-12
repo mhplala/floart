@@ -5,6 +5,132 @@ import ApplicationServices
 /// Extract UI element info via macOS system APIs.
 enum AccessibilityHelper {
 
+    // MARK: - Focused input detection
+
+    /// Info about the currently focused text input — used by SceneClassifier
+    /// and (Step 2) the inline bubble positioning.
+    struct FocusedInputInfo: Sendable {
+        let role: String              // AXTextField / AXTextArea / AXComboBox / AXSearchField
+        let placeholder: String?      // e.g. "Message #eng-platform", "Ask Claude anything"
+        let title: String?
+        let description: String?
+        let frame: CGRect?            // screen coordinates (top-left origin from AX)
+        let appName: String
+        let bundleId: String?
+
+        /// Concatenated hint text from placeholder/title/description for classifier + prompt.
+        var hintText: String? {
+            let parts = [placeholder, title, description].compactMap { $0 }.filter { !$0.isEmpty }
+            return parts.isEmpty ? nil : parts.joined(separator: " · ")
+        }
+    }
+
+    /// Detect the currently focused text input across apps (including web content).
+    /// Returns nil if no text input has focus, or if AX cannot read it.
+    ///
+    /// Strategy (falls through on failure):
+    ///   1. `kAXFocusedUIElement` on the frontmost app — works for native Cocoa apps.
+    ///   2. Walk `kAXFocusedWindow` looking for a descendant with `AXFocused = true`
+    ///      — rescues some Electron apps (Slack/Discord/VS Code) that don't expose
+    ///      focusedUIElement directly.
+    static func detectFocusedInput() -> FocusedInputInfo? {
+        guard let app = NSWorkspace.shared.frontmostApplication else { return nil }
+        let pid = app.processIdentifier
+        let appName = app.localizedName ?? ""
+        let bundleId = app.bundleIdentifier
+
+        let axApp = AXUIElementCreateApplication(pid)
+
+        // Strategy 1: direct focused UI element
+        var focusedRef: AnyObject?
+        if AXUIElementCopyAttributeValue(axApp, kAXFocusedUIElementAttribute as CFString, &focusedRef) == .success,
+           let ref = focusedRef,
+           CFGetTypeID(ref) == AXUIElementGetTypeID() {
+            let elem = ref as! AXUIElement
+            if let info = buildFocusedInputInfo(from: elem, appName: appName, bundleId: bundleId) {
+                return info
+            }
+        }
+
+        // Strategy 2: focused window descendants search
+        var focusedWin: AnyObject?
+        if AXUIElementCopyAttributeValue(axApp, kAXFocusedWindowAttribute as CFString, &focusedWin) == .success,
+           let ref = focusedWin,
+           CFGetTypeID(ref) == AXUIElementGetTypeID() {
+            let win = ref as! AXUIElement
+            if let elem = findFocusedTextElement(in: win, depth: 0),
+               let info = buildFocusedInputInfo(from: elem, appName: appName, bundleId: bundleId) {
+                return info
+            }
+        }
+
+        return nil
+    }
+
+    private static let textInputRoles: Set<String> = [
+        "AXTextField", "AXTextArea", "AXComboBox", "AXSearchField"
+    ]
+
+    private static func buildFocusedInputInfo(
+        from elem: AXUIElement,
+        appName: String,
+        bundleId: String?
+    ) -> FocusedInputInfo? {
+        guard let role = axStringAttribute(elem, kAXRoleAttribute) else { return nil }
+        guard textInputRoles.contains(role) else { return nil }
+
+        return FocusedInputInfo(
+            role: role,
+            placeholder: axStringAttribute(elem, kAXPlaceholderValueAttribute),
+            title: axStringAttribute(elem, kAXTitleAttribute),
+            description: axStringAttribute(elem, kAXDescriptionAttribute),
+            frame: axFrame(elem),
+            appName: appName,
+            bundleId: bundleId
+        )
+    }
+
+    private static func findFocusedTextElement(in element: AXUIElement, depth: Int) -> AXUIElement? {
+        if depth > 8 { return nil }  // guard against runaway recursion
+
+        // Is this element itself a focused text input?
+        var focusedValue: AnyObject?
+        if AXUIElementCopyAttributeValue(element, kAXFocusedAttribute as CFString, &focusedValue) == .success,
+           let isFocused = focusedValue as? Bool, isFocused,
+           let role = axStringAttribute(element, kAXRoleAttribute),
+           textInputRoles.contains(role) {
+            return element
+        }
+
+        // Recurse
+        var childrenRef: AnyObject?
+        if AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &childrenRef) == .success,
+           let children = childrenRef as? [AXUIElement] {
+            for child in children {
+                if let found = findFocusedTextElement(in: child, depth: depth + 1) {
+                    return found
+                }
+            }
+        }
+        return nil
+    }
+
+    private static func axFrame(_ element: AXUIElement) -> CGRect? {
+        var posRef: AnyObject?
+        var sizeRef: AnyObject?
+        let posOK = AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &posRef) == .success
+        let sizeOK = AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &sizeRef) == .success
+        guard posOK, sizeOK, let posRef, let sizeRef else { return nil }
+
+        var position = CGPoint.zero
+        var size = CGSize.zero
+        AXValueGetValue(posRef as! AXValue, .cgPoint, &position)
+        AXValueGetValue(sizeRef as! AXValue, .cgSize, &size)
+        return CGRect(origin: position, size: size)
+    }
+
+    // MARK: - Window title (legacy)
+
     /// Try to extract the chat title from the frontmost app's window.
     /// Uses CGWindowList (works without AX permission) then AX API as fallback.
     /// Returns nil if the app doesn't expose a useful window title

@@ -19,6 +19,9 @@ struct SettingsView: View {
     // OCR
     @AppStorage("watermarkKeywords") private var watermarkKeywords: String = ""
 
+    // Bubble
+    @AppStorage("enableBubble") private var enableBubble: Bool = true
+
     // Storage
     @AppStorage("retentionDays") private var retentionDays: Double = 30
 
@@ -82,6 +85,13 @@ struct SettingsView: View {
                 TextField("Keywords (comma separated)", text: $watermarkKeywords)
                     .textFieldStyle(.roundedBorder)
                 Text("Auto-detects repeated watermarks (e.g. \"Name 1234\"). Add extra keywords here for precise filtering.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Inline Bubble") {
+                Toggle("Show action bubble near focused input", isOn: $enableBubble)
+                Text("When you focus a text input, a small glassy bubble appears with the latest action. Click 填入 to append it to the input. 60s cooldown after filling.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

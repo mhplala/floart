@@ -50,6 +50,7 @@ struct FloartApp: App {
     @AppStorage("cloudAPIKey") private var cloudAPIKey: String = ""
     @AppStorage("cloudModel") private var cloudModel: String = "claude-sonnet-4-6-20250514"
     @AppStorage("cloudEndpoint") private var cloudEndpoint: String = "https://api.anthropic.com/v1/messages"
+    @AppStorage("enableBubble") private var enableBubble: Bool = true
 
     // Shared SwiftData model container
     private let modelContainer: ModelContainer = {
@@ -82,6 +83,7 @@ struct FloartApp: App {
             orch.captureMode = CaptureMode(rawValue: defaults.string(forKey: "captureMode") ?? "window") ?? .smartWindow
             orch.captureSize = defaults.double(forKey: "captureSize").nonZero ?? 2000
             orch.captureInterval = defaults.double(forKey: "captureInterval").nonZero ?? 5
+            orch.enableBubble = defaults.object(forKey: "enableBubble") as? Bool ?? true
 
             let aiBackend = defaults.string(forKey: "aiBackend") ?? "ollama"
             if aiBackend == "ollama" {
@@ -110,6 +112,9 @@ struct FloartApp: App {
             orch.styleProfileManager = StyleProfileManager(directory: floartDir)
             orch.conversationHistoryManager = ConversationHistoryManager(
                 directory: floartDir.appendingPathComponent("conversations")
+            )
+            orch.contextStore = ContextStore(
+                rootDir: floartDir.appendingPathComponent("contexts")
             )
             orch.modelContext = ModelContext(container)
 
@@ -197,6 +202,7 @@ struct FloartApp: App {
                 .onChange(of: cloudAPIKey) { applySettings() }
                 .onChange(of: cloudModel) { applySettings() }
                 .onChange(of: cloudEndpoint) { applySettings() }
+                .onChange(of: enableBubble) { applySettings() }
         }
         .modelContainer(modelContainer)
     }
@@ -206,6 +212,7 @@ struct FloartApp: App {
         orchestrator.captureSize = captureSize
         orchestrator.captureInterval = captureInterval
         orchestrator.analysisInterval = analysisInterval
+        orchestrator.enableBubble = enableBubble
 
         // Configure AI
         if aiBackend == "ollama" {
@@ -236,6 +243,11 @@ struct FloartApp: App {
         if orchestrator.conversationHistoryManager == nil {
             orchestrator.conversationHistoryManager = ConversationHistoryManager(
                 directory: floartDir.appendingPathComponent("conversations")
+            )
+        }
+        if orchestrator.contextStore == nil {
+            orchestrator.contextStore = ContextStore(
+                rootDir: floartDir.appendingPathComponent("contexts")
             )
         }
 
