@@ -465,17 +465,36 @@ final class InsightOrchestrator {
     /// the same chat title so file paths, bucket keys, and prompt fragments
     /// always agree.
     ///
+    /// Thin instance wrapper around the pure static variant — tests drive
+    /// the pure one with explicit `axChatTitle` and `currentConversationKey`
+    /// args instead of relying on AX / instance state.
+    private func resolveChatTitle(sceneType: SceneType, appName: String) -> String? {
+        Self.resolveChatTitle(
+            sceneType: sceneType,
+            appName: appName,
+            axChatTitle: AccessibilityHelper.extractChatTitle(),
+            currentConversationKey: currentConversationKey
+        )
+    }
+
+    /// Pure variant of `resolveChatTitle(sceneType:appName:)`.
+    ///
     /// Strategy (falls through on failure):
-    ///   1. Fresh AX window title via `AccessibilityHelper.extractChatTitle()`
-    ///      (native Cocoa apps, native WeChat 3.x, feishu web, Slack main window)
+    ///   1. Fresh AX window title (`axChatTitle`) — native Cocoa apps,
+    ///      native WeChat 3.x, Feishu web, Slack main window
     ///   2. Parsed out of `currentConversationKey` if it exists and belongs
     ///      to the current app — covers Electron apps where AX fails but
     ///      OCR already found a chat title earlier this session
     ///   3. nil — caller must treat as "chat identity unknown, don't inject
     ///      chat-specific context and don't write to a chat bucket file"
-    private func resolveChatTitle(sceneType: SceneType, appName: String) -> String? {
+    nonisolated static func resolveChatTitle(
+        sceneType: SceneType,
+        appName: String,
+        axChatTitle: String?,
+        currentConversationKey: String?
+    ) -> String? {
         guard sceneType == .dmChat else { return nil }
-        if let title = AccessibilityHelper.extractChatTitle(), !title.isEmpty {
+        if let title = axChatTitle, !title.isEmpty {
             return title
         }
         if let stale = currentConversationKey,
@@ -489,9 +508,26 @@ final class InsightOrchestrator {
     /// resolved chat title — if we can't resolve one we deliberately fall
     /// back to the app bucket instead of smashing multiple chats into the
     /// same key via stale `currentConversationKey`.
+    ///
+    /// Instance wrapper forwards to the pure static variant.
     private func contextKey(sceneType: SceneType, appName: String, bundleId: String?) -> String {
-        if sceneType == .dmChat,
-           let title = resolveChatTitle(sceneType: sceneType, appName: appName) {
+        Self.contextKey(
+            sceneType: sceneType,
+            appName: appName,
+            bundleId: bundleId,
+            chatTitle: resolveChatTitle(sceneType: sceneType, appName: appName)
+        )
+    }
+
+    /// Pure variant of `contextKey(sceneType:appName:bundleId:)`. Caller
+    /// supplies the already-resolved chat title.
+    nonisolated static func contextKey(
+        sceneType: SceneType,
+        appName: String,
+        bundleId: String?,
+        chatTitle: String?
+    ) -> String {
+        if sceneType == .dmChat, let title = chatTitle, !title.isEmpty {
             return "chat:\(appName):\(title)"
         }
         return "app:\(bundleId ?? appName)"
