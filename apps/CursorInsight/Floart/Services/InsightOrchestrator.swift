@@ -73,6 +73,13 @@ final class InsightOrchestrator {
     /// Dedup key for the last focused input we reacted to. Format:
     /// "<bundleId>|<role>|<x>,<y>". When this changes we consider it a new focus event.
     private var lastFocusedSignature: String?
+    /// The action text we last rendered into a bubble. Combined with
+    /// `lastFocusedSignature` forms a two-dimensional dedup: we only
+    /// suppress a re-show if BOTH the focused input and the action text
+    /// are unchanged. A new analysis producing a different action breaks
+    /// the dedup and the bubble re-appears — important after the user
+    /// manually dismissed the previous bubble.
+    private var lastShownAction: String?
     /// Inline bubble controller — shows the latest action above the focused input.
     let bubbleController = BubbleController()
 
@@ -85,6 +92,7 @@ final class InsightOrchestrator {
             if !enableBubble {
                 bubbleController.close()
                 lastFocusedSignature = nil
+                lastShownAction = nil
             }
         }
     }
@@ -100,6 +108,10 @@ final class InsightOrchestrator {
     private var lastFilledAt: Date?
     private static let fillCooldown: TimeInterval = 60
     // (context storage lives in `contextStore` — see above)
+
+    // MARK: - Chat message dedup (layer 1)
+    /// Per-conversation rolling dedup for tagged OCR lines — see MessageDedup.
+    private var messageDedup = MessageDedup()
     private var lastMouseLocation: NSPoint = .zero
     private var lastImageHash: UInt64 = 0
     private var lastFrontAppName: String = ""
@@ -146,6 +158,7 @@ final class InsightOrchestrator {
         focusPollTimer = nil
         bubbleController.close()
         lastFocusedSignature = nil
+        lastShownAction = nil
         isRunning = false
         statusMessage = "Paused"
     }
@@ -243,15 +256,46 @@ final class InsightOrchestrator {
                 Log.write("🔍 OCR done in \(ocrMs)ms — raw: \(zonedResult.raw.count) chars → zoned+cleaned: \(cleanedZoned.count) chars")
                 if !cleanedZoned.isEmpty {
                     Log.write("🔍 Zoned text:\n\(String(cleanedZoned.prefix(500)))")
-                    buffer.append(cleanedZoned, at: .now, appName: frontApp)
+                    // Chat dedup (layer 1): if we're in a chat app, resolve
+                    // the conversation key and strip any tagged-message lines
+                    // we've already seen in this session. This prevents the
+                    // same messages from being re-fed to the LLM on every
+                    // OCR frame, and handles the "user scrolled up to re-read
+                    // old messages" case correctly.
+                    let chatApps: Set<String> = ["飞书", "微信", "WeChat", "Telegram", "Slack", "飞书会议"]
+                    var textForBuffer = cleanedZoned
+                    var convKeyForBuffer: String? = nil
+                    if chatApps.contains(frontApp) {
+                        let chatTitle = await MainActor.run {
+                            AccessibilityHelper.extractChatTitle()
+                        } ?? zonedResult.chatTitle ?? "unknown"
+                        let rawKey = "\(frontApp):\(chatTitle)"
+                        let key = await MainActor.run { () -> String in
+                            self?.conversationHistoryManager?.resolveKey(rawKey) ?? rawKey
+                        }
+                        convKeyForBuffer = key
 
-                    // Collect [我] messages for style profile
+                        let filterResult = await MainActor.run { () -> MessageDedup.Result? in
+                            guard let self else { return nil }
+                            return self.messageDedup.filter(cleanedZoned, conversationKey: key)
+                        }
+                        if let r = filterResult {
+                            textForBuffer = r.filtered
+                            if r.dropped > 0 || r.kept > 0 {
+                                Log.write("🔁 Dedup (\(key)): kept \(r.kept) new, dropped \(r.dropped) duplicate tagged lines")
+                            }
+                        }
+                    }
+
+                    buffer.append(textForBuffer, at: .now, appName: frontApp)
+
+                    // Collect [我] messages for style profile (use the filtered
+                    // text so style profile only sees each message once).
                     if let spm = await self?.styleProfileManager {
-                        let newCount = spm.collectMessages(from: cleanedZoned)
+                        let newCount = spm.collectMessages(from: textForBuffer)
                         if newCount > 0 {
                             await MainActor.run {
                                 self?.newMessagesSinceLastRefresh += newCount
-                                // Cold start: refresh after 10 new messages if no profile yet
                                 if !(spm.hasProfile) && (self?.newMessagesSinceLastRefresh ?? 0) >= 10 {
                                     self?.newMessagesSinceLastRefresh = 0
                                     Task { await self?.refreshStyleProfile() }
@@ -260,21 +304,14 @@ final class InsightOrchestrator {
                         }
                     }
 
-                    // Collect messages for conversation history (chat apps only)
-                    let chatApps: Set<String> = ["飞书", "微信", "WeChat", "Telegram", "Slack", "飞书会议"]
-                    if let chm = await self?.conversationHistoryManager, chatApps.contains(frontApp) {
-                        // Try AX API first (reliable), fallback to OCR title
-                        let chatTitle = await MainActor.run {
-                            AccessibilityHelper.extractChatTitle()
-                        } ?? zonedResult.chatTitle ?? "unknown"
-                        let rawKey = "\(frontApp):\(chatTitle)"
-                        let key = chm.resolveKey(rawKey)
-
-                        let lines = cleanedZoned.components(separatedBy: "\n")
+                    // Collect messages for conversation history. Use the
+                    // filtered text so CHM only appends genuinely-new lines.
+                    if let chm = await self?.conversationHistoryManager,
+                       let key = convKeyForBuffer {
+                        let lines = textForBuffer.components(separatedBy: "\n")
                         let taggedMessages = lines.filter { $0.hasPrefix("[我] ") || $0.hasPrefix("[对方] ") }
                         if !taggedMessages.isEmpty {
                             chm.addMessages(taggedMessages, forConversation: key)
-                            // Check if summary refresh needed
                             if chm.needsSummaryRefresh(forConversation: key) {
                                 let convKey = key
                                 await MainActor.run {
@@ -335,13 +372,14 @@ final class InsightOrchestrator {
 
         // (1) App-switch dismissal: if the bubble is showing but the current
         //     frontmost app isn't the owner, close it immediately. Also clear
-        //     the dedup signature so re-focusing in the original app works.
+        //     the dedup so re-focusing in the original app pops a fresh one.
         if bubbleController.isShowing,
            let owner = bubbleController.ownerBundleId,
            frontBundleId != owner {
             Log.write("🫧 App switched away from \(owner) → closing bubble")
             bubbleController.close()
             lastFocusedSignature = nil
+            lastShownAction = nil
         }
 
         // (2) New-focus detection + bubble show.
@@ -350,19 +388,23 @@ final class InsightOrchestrator {
             return
         }
 
-        // Dedup: quantize position to 10px so 1px jitter doesn't re-trigger.
+        // Focus signature — quantize position to 10px so 1px jitter doesn't re-trigger.
         let roundedX = Int(frame.origin.x / 10) * 10
         let roundedY = Int(frame.origin.y / 10) * 10
         let signature = "\(input.bundleId ?? input.appName)|\(input.role)|\(roundedX),\(roundedY)"
 
-        guard signature != lastFocusedSignature else { return }
-        lastFocusedSignature = signature
+        // Fast path: bubble is already showing on this same input, and the
+        // `updateAction` hook in analyzeBuffer takes care of refreshing its
+        // content in place. Nothing for the poller to do.
+        if bubbleController.isShowing, signature == lastFocusedSignature {
+            return
+        }
 
         // Only show an action that was actually generated for the CURRENT
         // app/chat. Without this gating, switching from App A to App B and
         // focusing an input would pop a bubble with App A's stale action.
         let sceneType = SceneClassifier.classify(bundleId: input.bundleId, focusedInput: input)
-        let chatTitle = sceneType == .dmChat ? AccessibilityHelper.extractChatTitle() : nil
+        let chatTitle = resolveChatTitle(sceneType: sceneType, appName: input.appName)
         let contextKey = contextKey(
             sceneType: sceneType,
             appName: input.appName,
@@ -378,7 +420,19 @@ final class InsightOrchestrator {
         let advice = bucket.lastAdvice,
         let action = AIResponse(advice: advice, timestamp: .now, rawText: "").actionContent,
         !action.isEmpty else {
-            Log.write("🫧 Focus changed (\(input.role) in \(input.appName)) but no cached action for \(contextKey)")
+            if signature != lastFocusedSignature {
+                Log.write("🫧 Focus changed (\(input.role) in \(input.appName)) but no cached action for \(contextKey)")
+                lastFocusedSignature = signature
+            }
+            return
+        }
+
+        // (signature, action) dedup: suppress re-show when both the focused
+        // input AND the action text are unchanged since we last showed
+        // something. A new analysis producing a different action breaks
+        // this dedup, so a dismissed bubble naturally re-appears when
+        // there's genuinely new content to show.
+        if signature == lastFocusedSignature, action == lastShownAction {
             return
         }
 
@@ -401,25 +455,44 @@ final class InsightOrchestrator {
                 self?.handleBubbleFill()
             }
         )
+        lastFocusedSignature = signature
+        lastShownAction = action
     }
 
-    /// Compute the scene-aware context bucket for the current moment.
+    /// Resolve the chat identity for the current moment. Single source of
+    /// truth used by `contextKey()`, `analyzeBuffer`, `pollFocusedInput`,
+    /// `handleBubbleFill`, and `ContextStore.read/append` — everyone gets
+    /// the same chat title so file paths, bucket keys, and prompt fragments
+    /// always agree.
     ///
-    /// For chat scenes we prefer a **fresh** chat title read directly from
-    /// the window via `AccessibilityHelper.extractChatTitle()` — this is
-    /// fast (~50ms) and works at both analyze time and poll time, so the
-    /// analyzer and the focus poller always produce the same key. The stale
-    /// `currentConversationKey` (set only after an OCR loop catches the chat)
-    /// is only used as a fallback if AX title extraction fails.
+    /// Strategy (falls through on failure):
+    ///   1. Fresh AX window title via `AccessibilityHelper.extractChatTitle()`
+    ///      (native Cocoa apps, native WeChat 3.x, feishu web, Slack main window)
+    ///   2. Parsed out of `currentConversationKey` if it exists and belongs
+    ///      to the current app — covers Electron apps where AX fails but
+    ///      OCR already found a chat title earlier this session
+    ///   3. nil — caller must treat as "chat identity unknown, don't inject
+    ///      chat-specific context and don't write to a chat bucket file"
+    private func resolveChatTitle(sceneType: SceneType, appName: String) -> String? {
+        guard sceneType == .dmChat else { return nil }
+        if let title = AccessibilityHelper.extractChatTitle(), !title.isEmpty {
+            return title
+        }
+        if let stale = currentConversationKey,
+           stale.hasPrefix("\(appName):") {
+            return String(stale.dropFirst(appName.count + 1))
+        }
+        return nil
+    }
+
+    /// Compute the scene-aware context bucket key. Chat buckets require a
+    /// resolved chat title — if we can't resolve one we deliberately fall
+    /// back to the app bucket instead of smashing multiple chats into the
+    /// same key via stale `currentConversationKey`.
     private func contextKey(sceneType: SceneType, appName: String, bundleId: String?) -> String {
-        if sceneType == .dmChat {
-            if let title = AccessibilityHelper.extractChatTitle(), !title.isEmpty {
-                return "chat:\(appName):\(title)"
-            }
-            if let stale = currentConversationKey,
-               stale.hasPrefix("\(appName):") {
-                return "chat:\(stale)"
-            }
+        if sceneType == .dmChat,
+           let title = resolveChatTitle(sceneType: sceneType, appName: appName) {
+            return "chat:\(appName):\(title)"
         }
         return "app:\(bundleId ?? appName)"
     }
@@ -433,7 +506,7 @@ final class InsightOrchestrator {
             return
         }
         let sceneType = SceneClassifier.classify(bundleId: input.bundleId, focusedInput: input)
-        let chatTitle = sceneType == .dmChat ? AccessibilityHelper.extractChatTitle() : nil
+        let chatTitle = resolveChatTitle(sceneType: sceneType, appName: input.appName)
         let key = contextKey(sceneType: sceneType, appName: input.appName, bundleId: input.bundleId)
         guard let bucket = contextStore?.read(
             appName: input.appName,
@@ -492,13 +565,11 @@ final class InsightOrchestrator {
         let inputHint = focusedInput?.hintText
 
         // Compute a scene-aware context bucket, freshly for this analysis.
-        // See `contextKey(...)` — same rule is used by the focus poller so the
-        // bubble only shows actions generated for the CURRENT app/chat.
+        // Unified chat identity — same function is called by the poller, the
+        // fill handler, the contextKey helper, and here, so file paths and
+        // bucket keys always agree.
+        let chatTitleForStorage = resolveChatTitle(sceneType: sceneType, appName: appName)
         let contextKey = self.contextKey(sceneType: sceneType, appName: appName, bundleId: bundleId)
-        let isCurrentAppChatKey = currentConversationKey?.hasPrefix("\(appName):") ?? false
-        // Fresh chat title for file-based context storage (must match whatever
-        // the focus poller reads so the files land under the same path).
-        let chatTitleForStorage = sceneType == .dmChat ? AccessibilityHelper.extractChatTitle() : nil
 
         let textWithContext = "[当前应用: \(appName)]\n\n\(textForAI)"
 
@@ -509,14 +580,25 @@ final class InsightOrchestrator {
         statusMessage = "Analyzing..."
         let aiStart = Date()
         let styleFragment = styleProfileManager?.promptFragment()
-        // Conversation-history fragment is only meaningful for the CURRENT chat.
-        // Stale keys from other apps must not be used.
+        // Conversation-history fragment must EXACTLY match the resolved
+        // current chat title — otherwise switching chats inside the same app
+        // (e.g. WeChat Alice → WeChat Bob) would leak Alice's history into
+        // Bob's analysis during the brief window before the OCR loop catches
+        // up and updates `currentConversationKey`.
         let conversationFragment: String? = {
             guard sceneType == .dmChat,
-                  let key = currentConversationKey,
-                  isCurrentAppChatKey,
+                  let title = chatTitleForStorage,
                   let chm = conversationHistoryManager else { return nil }
-            return chm.promptFragment(forConversation: key)
+            let expectedKey = "\(appName):\(title)"
+            // Only use the CHM fragment if its stored key matches. CHM stores
+            // under its own canonicalized key; we verify by matching against
+            // the stale currentConversationKey when present.
+            if let stored = currentConversationKey, stored == expectedKey {
+                return chm.promptFragment(forConversation: stored)
+            }
+            // Fall back: ask CHM directly for the expected key. If CHM has
+            // never seen this chat, it returns nil, which is the safe result.
+            return chm.promptFragment(forConversation: expectedKey)
         }()
 
         // Read the bucket from the editable context store — this gives us
